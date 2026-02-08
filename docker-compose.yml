@@ -1,0 +1,24 @@
+services:
+  guardarr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: guardarr
+    ports:
+      - 4600:4600
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=/app/data/guardarr.db
+      - APP_PORT=4600
+    volumes:
+      - ./data:/app/data
+    user: "1000:1000"
+    restart: unless-stopped
+    networks:
+      - guardarr-network
+
+networks:
+  guardarr-network:
+    driver: bridge
