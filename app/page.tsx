@@ -162,7 +162,7 @@ export default function Home() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950">
         <div className="text-center space-y-6">
-          <div className="flex flex-col items-center gap-4"><img src="/logo.svg" alt="Guardarr" className="h-32 w-32" /><h1 className="text-4xl font-bold text-orange-500">Guardarr</h1></div>
+          <div className="flex flex-col items-center gap-4"><img src="/logo.svg" alt="Guardarr" className="h-32 w-32" /><h1 className="text-4xl font-bold text-orange-500">Guardarr <span className="text-slate-500 text-lg font-normal">v{process.env.NEXT_PUBLIC_APP_VERSION}</span></h1></div>
           <p className="text-slate-400 max-w-md">
             Schedule-based content restrictions for Plex Media Server users
           </p>
@@ -195,7 +195,7 @@ export default function Home() {
     <div className="min-h-screen bg-slate-950">
       <header className="border-b border-slate-800 bg-slate-900/50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3"><img src="/logo.svg" alt="Guardarr" className="h-16 w-16" /><h1 className="text-2xl font-bold text-orange-500">Guardarr</h1></div>
+          <div className="flex items-center gap-3"><img src="/logo.svg" alt="Guardarr" className="h-16 w-16" /><h1 className="text-2xl font-bold text-orange-500">Guardarr <span className="text-slate-500 text-sm font-normal">v{process.env.NEXT_PUBLIC_APP_VERSION}</span></h1></div>
           <div className="flex items-center gap-4">
             <span className="text-slate-400">{session.user?.name}</span>
             <Button
