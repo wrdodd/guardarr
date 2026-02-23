@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,8 @@ export default function SettingsPage() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [currentTime, setCurrentTime] = useState("");
+  const [adminTokenConnecting, setAdminTokenConnecting] = useState(false);
+  const popupClosedCheckerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -48,6 +50,55 @@ export default function SettingsPage() {
     const interval = setInterval(updateCurrentTime, 1000);
     return () => clearInterval(interval);
   }, [settings.timezone]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "PLEX_AUTH_SUCCESS" && event.data?.token) {
+        setSettings(prev => ({ ...prev, plex_admin_token: event.data.token }));
+        setAdminTokenConnecting(false);
+        if (popupClosedCheckerRef.current) {
+          clearInterval(popupClosedCheckerRef.current);
+          popupClosedCheckerRef.current = null;
+        }
+        toast({ title: "Plex Connected", description: "Admin token received. Save settings to persist." });
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  const connectPlexAdmin = async () => {
+    setAdminTokenConnecting(true);
+    try {
+      const res = await fetch("/api/plex-auth/pin", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to create Plex PIN");
+      const { id, code, clientId } = await res.json();
+
+      const forwardUrl = `${window.location.origin}/plex-callback?pinId=${id}&mode=popup`;
+      const plexAuthUrl =
+        `https://app.plex.tv/auth#?clientID=${encodeURIComponent(clientId)}` +
+        `&code=${encodeURIComponent(code)}` +
+        `&forwardUrl=${encodeURIComponent(forwardUrl)}` +
+        `&context[device][product]=Guardarr`;
+
+      const popup = window.open(plexAuthUrl, "plex_auth", "width=800,height=700,resizable=yes");
+      if (!popup) {
+        throw new Error("Popup blocked. Please allow popups for this site.");
+      }
+
+      popupClosedCheckerRef.current = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(popupClosedCheckerRef.current!);
+          popupClosedCheckerRef.current = null;
+          setAdminTokenConnecting(false);
+        }
+      }, 1000);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setAdminTokenConnecting(false);
+    }
+  };
 
   const updateCurrentTime = () => {
     try {
@@ -203,22 +254,26 @@ export default function SettingsPage() {
 
             <div>
               <Label className="text-slate-300">Admin Token</Label>
-              <Input
-                type="password"
-                value={settings.plex_admin_token}
-                onChange={(e) => setSettings({ ...settings, plex_admin_token: e.target.value })}
-                placeholder="Your Plex token"
-                className="bg-slate-800 border-slate-700 text-slate-100"
-              />
-              <p className="text-slate-500 text-sm mt-1">
-                <a
-                  href="https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-400 hover:underline"
+              <div className="flex gap-2 mt-1">
+                <Input
+                  type="password"
+                  value={settings.plex_admin_token}
+                  onChange={(e) => setSettings({ ...settings, plex_admin_token: e.target.value })}
+                  placeholder={settings.plex_admin_token ? "Token configured" : "No token set"}
+                  className="bg-slate-800 border-slate-700 text-slate-100"
+                />
+                <Button
+                  type="button"
+                  onClick={connectPlexAdmin}
+                  disabled={adminTokenConnecting}
+                  variant="outline"
+                  className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 whitespace-nowrap"
                 >
-                  How to find your token
-                </a>
+                  {adminTokenConnecting ? "Waiting for Plex..." : "Connect with Plex"}
+                </Button>
+              </div>
+              <p className="text-slate-500 text-sm mt-1">
+                Click &ldquo;Connect with Plex&rdquo; to authenticate via OAuth, or paste your token directly.
               </p>
             </div>
 
