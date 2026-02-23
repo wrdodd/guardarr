@@ -3,11 +3,8 @@
 import { useState, useEffect } from "react";
 import { signIn, getSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
-  const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
@@ -20,7 +17,6 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    // Check URL params for error (NextAuth redirect errors)
     const params = new URLSearchParams(window.location.search);
     const urlError = params.get("error");
     if (urlError) {
@@ -28,7 +24,6 @@ export default function LoginPage() {
       setShowDebug(true);
     }
 
-    // Check if already authenticated
     getSession().then((session) => {
       if (session) {
         window.location.href = "/";
@@ -36,79 +31,48 @@ export default function LoginPage() {
     });
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePlexOAuth = async () => {
     setLoading(true);
     setError("");
     setDebugInfo([]);
-    setShowDebug(true);
-
-    const trimmedToken = token.trim();
-
-    if (!trimmedToken) {
-      setError("Please enter a Plex token");
-      setLoading(false);
-      return;
-    }
-
-    addDebug(`Token length: ${trimmedToken.length}, starts with: ${trimmedToken.substring(0, 5)}...`);
-    addDebug("Calling signIn('credentials', { token, redirect: false })...");
 
     try {
-      const result = await signIn("credentials", {
-        token: trimmedToken,
-        redirect: false,
-        callbackUrl: "/",
-      });
+      addDebug("Requesting Plex PIN...");
+      const res = await fetch("/api/plex-auth/pin", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to create Plex PIN");
+      const { id, code, clientId } = await res.json();
+      addDebug(`PIN created: id=${id}, code=${code}`);
 
-      addDebug(`signIn result: ${JSON.stringify(result)}`);
+      const forwardUrl = `${window.location.origin}/plex-callback?pinId=${id}&mode=login`;
+      const plexAuthUrl =
+        `https://app.plex.tv/auth#?clientID=${encodeURIComponent(clientId)}` +
+        `&code=${encodeURIComponent(code)}` +
+        `&forwardUrl=${encodeURIComponent(forwardUrl)}` +
+        `&context[device][product]=Guardarr`;
 
-      if (result?.error) {
-        addDebug(`ERROR from signIn: ${result.error}`);
-        // Map NextAuth error codes to user-friendly messages
-        if (result.error === "CredentialsSignin") {
-          setError("Authentication failed. The token may be invalid or Plex API is unreachable. Check debug logs.");
-        } else {
-          setError(result.error);
-        }
-      } else if (result?.ok) {
-        addDebug("SUCCESS! Redirecting to /");
-        window.location.href = result.url || "/";
-      } else {
-        addDebug(`Unexpected result: ${JSON.stringify(result)}`);
-        setError("Unexpected response from auth. Check debug logs.");
-      }
+      addDebug("Redirecting to Plex auth...");
+      window.location.href = plexAuthUrl;
     } catch (err: any) {
-      addDebug(`Exception: ${err.message}`);
-      setError(`Network error: ${err.message}`);
-    } finally {
+      setError(err.message || "Failed to start Plex OAuth");
       setLoading(false);
     }
   };
 
-  // Direct Plex API test (bypasses NextAuth entirely)
   const testPlexDirect = async () => {
-    const trimmedToken = token.trim();
-    if (!trimmedToken) {
-      setError("Enter a token first");
-      return;
-    }
-
     setDebugInfo([]);
     setShowDebug(true);
-    addDebug("Testing Plex API directly (bypassing NextAuth)...");
+    addDebug("Testing Plex PIN endpoint...");
 
     try {
-      const res = await fetch(`/api/auth/test?token=${encodeURIComponent(trimmedToken)}`);
+      const res = await fetch("/api/plex-auth/pin", { method: "POST" });
       const data = await res.json();
-      addDebug(`Direct test result: ${JSON.stringify(data, null, 2)}`);
-      if (data.success) {
-        addDebug(`✅ Plex API works! User: ${data.user?.name} (${data.user?.id})`);
+      if (data.id) {
+        addDebug(`✅ PIN endpoint works! id=${data.id}, clientId=${data.clientId}`);
       } else {
-        addDebug(`❌ Plex API failed: ${data.error}`);
+        addDebug(`❌ PIN endpoint failed: ${JSON.stringify(data)}`);
       }
     } catch (err: any) {
-      addDebug(`Direct test exception: ${err.message}`);
+      addDebug(`Exception: ${err.message}`);
     }
   };
 
@@ -117,40 +81,22 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-orange-500">Guardarr</h1>
-          <p className="text-slate-400">Sign in with your Plex token</p>
+          <p className="text-slate-400">Sign in with your Plex account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="token" className="text-slate-300">
-              Plex Token
-            </Label>
-            <Input
-              id="token"
-              type="text"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="Enter your Plex token"
-              className="bg-slate-900 border-slate-700 text-slate-100 font-mono"
-              required
-              disabled={loading}
-            />
+        {error && (
+          <div className="bg-red-900/30 border border-red-500/50 rounded-md p-3">
+            <p className="text-red-400 text-sm font-medium">{error}</p>
           </div>
+        )}
 
-          {error && (
-            <div className="bg-red-900/30 border border-red-500/50 rounded-md p-3">
-              <p className="text-red-400 text-sm font-medium">{error}</p>
-            </div>
-          )}
-
-          <Button
-            type="submit"
-            disabled={loading || !token.trim()}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-slate-950 font-semibold"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </Button>
-        </form>
+        <Button
+          onClick={handlePlexOAuth}
+          disabled={loading}
+          className="w-full bg-orange-500 hover:bg-orange-600 text-slate-950 font-semibold"
+        >
+          {loading ? "Redirecting to Plex..." : "Sign in with Plex"}
+        </Button>
 
         {/* Debug section */}
         <div className="pt-2 space-y-2">
@@ -169,7 +115,7 @@ export default function LoginPage() {
               onClick={testPlexDirect}
               className="text-slate-500 hover:text-slate-300 text-xs"
             >
-              🔧 Test Plex API Direct
+              🔧 Test Plex PIN Endpoint
             </Button>
           </div>
         </div>
@@ -178,28 +124,22 @@ export default function LoginPage() {
           <div className="bg-slate-900 border border-slate-700 rounded-md p-3 max-h-80 overflow-y-auto">
             <div className="font-mono text-xs space-y-1">
               {debugInfo.map((line, i) => (
-                <div key={i} className={`${
-                  line.includes("ERROR") || line.includes("❌") ? "text-red-400" :
-                  line.includes("SUCCESS") || line.includes("✅") ? "text-green-400" :
-                  "text-slate-300"
-                }`}>
+                <div
+                  key={i}
+                  className={`${
+                    line.includes("ERROR") || line.includes("❌")
+                      ? "text-red-400"
+                      : line.includes("SUCCESS") || line.includes("✅")
+                      ? "text-green-400"
+                      : "text-slate-300"
+                  }`}
+                >
                   {line}
                 </div>
               ))}
             </div>
           </div>
         )}
-
-        <div className="text-center text-sm text-slate-500">
-          <a
-            href="https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-orange-400 hover:underline"
-          >
-            How to find your Plex token
-          </a>
-        </div>
       </div>
     </div>
   );
