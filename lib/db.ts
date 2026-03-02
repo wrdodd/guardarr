@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { mkdirSync } from 'fs';
 
 // Avoid database operations during build time
 const isBuild = process.env.NODE_ENV === 'production' && typeof window === 'undefined' && process.env.NEXT_PHASE === 'phase-production-build';
@@ -12,8 +13,9 @@ function getDbPath(): string {
 
 export function getDb(): Database.Database {
   if (dbInstance) return dbInstance;
-  
+
   const dbPath = getDbPath();
+  mkdirSync(dirname(dbPath), { recursive: true });
   dbInstance = new Database(dbPath);
   dbInstance.pragma('journal_mode = WAL');
   return dbInstance;

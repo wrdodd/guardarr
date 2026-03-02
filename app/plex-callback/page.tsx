@@ -49,6 +49,12 @@ export default function PlexCallbackPage() {
             });
 
             if (result?.ok) {
+              // Save the token as the admin token in settings automatically
+              await fetch("/api/settings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ plex_admin_token: data.token }),
+              });
               window.location.href = result.url || "/";
             } else {
               setStatus("error");

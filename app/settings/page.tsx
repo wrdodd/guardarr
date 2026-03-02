@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft, Save, TestTube, Clock } from "lucide-react";
+import { ArrowLeft, Save, TestTube, Clock, Server } from "lucide-react";
 import Link from "next/link";
 
 interface Settings {
@@ -42,6 +42,8 @@ export default function SettingsPage() {
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [currentTime, setCurrentTime] = useState("");
   const [adminTokenConnecting, setAdminTokenConnecting] = useState(false);
+  const [discoveringServers, setDiscoveringServers] = useState(false);
+  const [availableServers, setAvailableServers] = useState<{ name: string; clientIdentifier: string; owned: boolean; allConnections: { uri: string; local: boolean; relay: boolean; label: string }[] }[]>([]);
   const popupClosedCheckerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -97,6 +99,24 @@ export default function SettingsPage() {
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
       setAdminTokenConnecting(false);
+    }
+  };
+
+  const discoverServers = async () => {
+    setDiscoveringServers(true);
+    setAvailableServers([]);
+    try {
+      const res = await fetch("/api/plex-auth/servers");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch servers");
+      setAvailableServers(data.servers);
+      if (data.servers.length === 0) {
+        toast({ title: "No servers found", description: "No Plex servers found for this account.", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setDiscoveringServers(false);
     }
   };
 
@@ -243,13 +263,48 @@ export default function SettingsPage() {
           <CardContent className="space-y-6">
             <div>
               <Label className="text-slate-300">Plex Server URL</Label>
-              <Input
-                value={settings.plex_server_url}
-                onChange={(e) => setSettings({ ...settings, plex_server_url: e.target.value })}
-                placeholder="http://192.168.1.200:32400"
-                className="bg-slate-800 border-slate-700 text-slate-100"
-              />
-              <p className="text-slate-500 text-sm mt-1">Your local Plex server address</p>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={settings.plex_server_url}
+                  onChange={(e) => setSettings({ ...settings, plex_server_url: e.target.value })}
+                  placeholder="http://192.168.1.200:32400"
+                  className="bg-slate-800 border-slate-700 text-slate-100"
+                />
+                <Button
+                  type="button"
+                  onClick={discoverServers}
+                  disabled={discoveringServers || !settings.plex_admin_token}
+                  variant="outline"
+                  className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 whitespace-nowrap"
+                >
+                  <Server className="h-4 w-4 mr-2" />
+                  {discoveringServers ? "Searching..." : "Discover"}
+                </Button>
+              </div>
+              {availableServers.length > 0 && (
+                <div className="mt-2 rounded-md border border-slate-700 bg-slate-800/50 divide-y divide-slate-700">
+                  {availableServers.map((server) => (
+                    <div key={server.clientIdentifier ?? server.url} className="p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-200 font-medium text-sm">{server.name}{server.owned && <span className="ml-2 text-xs text-orange-400">(yours)</span>}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {server.allConnections.map((c) => (
+                          <button
+                            key={c.uri}
+                            type="button"
+                            onClick={() => { setSettings(prev => ({ ...prev, plex_server_url: c.uri })); setAvailableServers([]); }}
+                            className="text-xs px-2 py-1 rounded bg-slate-700 hover:bg-orange-500/20 text-slate-300 hover:text-orange-300 border border-slate-600 hover:border-orange-500/50 transition-colors"
+                          >
+                            {c.label}: {c.uri}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-slate-500 text-sm mt-1">Enter your Plex server address or click Discover to find it automatically</p>
             </div>
 
             <div>

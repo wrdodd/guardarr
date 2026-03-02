@@ -18,8 +18,9 @@ export async function POST(request: Request) {
     }
 
     // Test connection to Plex server
-    const url = `${serverUrl.replace(/\/$/, "")}/identity`;
-    const response = await fetch(url, {
+    // Use root endpoint for full server info including friendlyName
+    const baseUrl = serverUrl.replace(/\/$/, "");
+    const response = await fetch(baseUrl, {
       headers: {
         Accept: "application/json",
         "X-Plex-Token": token,
