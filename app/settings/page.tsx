@@ -37,6 +37,8 @@ export default function SettingsPage() {
     timezone: "America/Los_Angeles",
   });
   const [tokenConfigured, setTokenConfigured] = useState(false);
+  const [bypassPin, setBypassPin] = useState("");
+  const [pinSet, setPinSet] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -137,6 +139,32 @@ export default function SettingsPage() {
       setCurrentTime(time);
     } catch {
       setCurrentTime("Invalid timezone");
+    }
+  };
+
+  useEffect(() => { fetchPinSet(); }, []);
+
+  const fetchPinSet = async () => {
+    try {
+      const res = await fetch("/api/settings/bypass-pin", { cache: "no-store" });
+      if (res.ok) { const d = await res.json(); setPinSet(!!d.pin_set); }
+    } catch (e) { /* ignore */ }
+  };
+
+  const saveBypassPin = async (clear = false) => {
+    try {
+      const res = await fetch("/api/settings/bypass-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: clear ? "" : bypassPin }),
+      });
+      const d = await res.json();
+      if (!res.ok) { toast({ title: "Error", description: d.error || "Failed", variant: "destructive" }); return; }
+      setPinSet(!!d.pin_set);
+      setBypassPin("");
+      toast({ title: "Saved", description: d.pin_set ? "Bypass PIN set." : "Bypass PIN cleared." });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to save PIN", variant: "destructive" });
     }
   };
 
@@ -368,6 +396,48 @@ export default function SettingsPage() {
                 <Save className="h-4 w-4 mr-2" />
                 {saving ? "Saving..." : "Save Settings"}
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bypass PIN — optional parent gate for granting overrides (#2) */}
+        <Card className="bg-slate-900 border-slate-800">
+          <CardHeader>
+            <CardTitle className="text-slate-100">Bypass PIN</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-slate-400 text-sm">
+              {pinSet
+                ? "A PIN is set — it's required to grant a temporary bypass."
+                : "Optional: require a PIN to grant a temporary bypass, so it can't be done without you."}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                type="password"
+                inputMode="numeric"
+                value={bypassPin}
+                onChange={(e) => setBypassPin(e.target.value)}
+                placeholder={pinSet ? "Enter a new PIN to change it" : "4–8 digit PIN"}
+                className="bg-slate-800 border-slate-700 text-slate-100"
+              />
+              <Button
+                type="button"
+                onClick={() => saveBypassPin(false)}
+                disabled={!/^\d{4,8}$/.test(bypassPin)}
+                className="bg-orange-500 hover:bg-orange-600 text-slate-950 whitespace-nowrap"
+              >
+                {pinSet ? "Change PIN" : "Set PIN"}
+              </Button>
+              {pinSet && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => saveBypassPin(true)}
+                  className="border-slate-700 text-slate-300 hover:bg-slate-800 whitespace-nowrap"
+                >
+                  Clear PIN
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
