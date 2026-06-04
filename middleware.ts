@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 //   /api/auth/*       — NextAuth endpoints
 //   /api/plex-auth/*  — the Plex PIN/OAuth login flow (used while logged OUT)
 const PUBLIC_API_PREFIXES = ["/api/auth", "/api/plex-auth"];
-const PROTECTED_PAGES = ["/settings", "/users", "/rules", "/activity"];
+const PROTECTED_PAGES = ["/settings", "/users", "/rules", "/activity", "/library-access"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -35,5 +35,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/settings/:path*", "/users/:path*", "/rules/:path*", "/activity/:path*"],
+  matcher: ["/api/:path*", "/settings/:path*", "/users/:path*", "/rules/:path*", "/activity/:path*", "/library-access/:path*"],
 };

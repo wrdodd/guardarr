@@ -437,6 +437,13 @@ export default function Home() {
                 <p className="text-slate-400 text-sm">Configure Plex server and preferences</p>
               </div>
             </Link>
+
+            <Link href="/library-access" className="block group">
+              <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 hover:border-orange-500/50 transition-colors">
+                <h3 className="text-lg font-medium text-orange-400 mb-2 group-hover:text-orange-300">Library Access</h3>
+                <p className="text-slate-400 text-sm">See which Plex libraries each user can access</p>
+              </div>
+            </Link>
           </div>
         </div>
       </main>
