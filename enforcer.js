@@ -281,6 +281,35 @@ function backupDatabase() {
   }
 }
 
+// Weekly digest to the alert webhook (opt-in: requires alert_webhook_url).
+function maybeSendDigest() {
+  const webhook = getSetting("alert_webhook_url", "ALERT_WEBHOOK_URL");
+  if (!webhook) return;
+  try {
+    const row = db.prepare("SELECT value FROM settings WHERE key='last_digest_at'").get();
+    if (!row || !row.value) {
+      db.prepare("INSERT INTO settings(key,value,updated_at) VALUES('last_digest_at',datetime('now'),datetime('now')) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at").run();
+      return;
+    }
+    const due = db.prepare("SELECT (julianday('now') - julianday(value)) >= 7 AS due FROM settings WHERE key='last_digest_at'").get();
+    if (!due || !due.due) return;
+    const q = (sql) => db.prepare(sql).get().n;
+    const total = q("SELECT COUNT(*) n FROM activity_log WHERE created_at >= datetime('now','-7 days')");
+    const applies = q("SELECT COUNT(*) n FROM activity_log WHERE action='rule_applied' AND created_at >= datetime('now','-7 days')");
+    const bypasses = q("SELECT COUNT(*) n FROM activity_log WHERE action LIKE 'bypass%' AND created_at >= datetime('now','-7 days')");
+    const users = q("SELECT COUNT(*) n FROM users WHERE deactivated=0 AND is_admin=0");
+    const tv = db.prepare("SELECT token_valid FROM enforcer_status WHERE id=1").get();
+    const health = tv && tv.token_valid ? "healthy" : "FAILING — check the Plex token";
+    const msg = `Guardarr weekly digest — last 7 days: ${total} events, ${applies} rule applies, ${bypasses} bypass actions, across ${users} managed/shared users. Enforcement is ${health}.`;
+    fetch(webhook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: msg, text: msg }) })
+      .then(() => console.log("[ENFORCER] weekly digest sent"))
+      .catch((e) => console.error("[ENFORCER] digest send failed:", e.message));
+    db.prepare("UPDATE settings SET value=datetime('now'), updated_at=datetime('now') WHERE key='last_digest_at'").run();
+  } catch (e) {
+    console.error("[ENFORCER] digest error:", e.message);
+  }
+}
+
 // ───────────────────────────────── enforce loop ─────────────────────────────────
 async function enforceRules() {
   let failures = 0;
@@ -330,6 +359,7 @@ async function runCycle() {
   const now = Date.now();
   if (now - lastValidate > 5 * 60 * 1000) { lastValidate = now; await validateToken(); }
   if (now - lastBackup > 24 * 60 * 60 * 1000) { lastBackup = now; backupDatabase(); }
+  maybeSendDigest();
 
   await enforceRules();
 

@@ -13,6 +13,7 @@ interface Settings {
   plex_server_url: string;
   plex_admin_token: string;
   timezone: string;
+  alert_webhook_url: string;
 }
 
 const COMMON_TIMEZONES = [
@@ -35,6 +36,7 @@ export default function SettingsPage() {
     plex_server_url: "",
     plex_admin_token: "",
     timezone: "America/Los_Angeles",
+    alert_webhook_url: "",
   });
   const [tokenConfigured, setTokenConfigured] = useState(false);
   const [bypassPin, setBypassPin] = useState("");
@@ -179,6 +181,7 @@ export default function SettingsPage() {
         plex_server_url: data.plex_server_url || "",
         plex_admin_token: "",
         timezone: data.timezone || "America/Los_Angeles",
+        alert_webhook_url: data.alert_webhook_url || "",
       });
     } catch (error) {
       toast({ title: "Error", description: "Failed to load settings", variant: "destructive" });
@@ -438,6 +441,27 @@ export default function SettingsPage() {
                   Clear PIN
                 </Button>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notifications webhook — powers failure alerts + the weekly digest (#6) */}
+        <Card className="bg-slate-900 border-slate-800">
+          <CardHeader>
+            <CardTitle className="text-slate-100">Notifications</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-slate-400 text-sm">Optional webhook (Discord / Slack / ntfy) for enforcement-failure alerts and a weekly activity digest.</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                value={settings.alert_webhook_url}
+                onChange={(e) => setSettings({ ...settings, alert_webhook_url: e.target.value })}
+                placeholder="https://discord.com/api/webhooks/…"
+                className="bg-slate-800 border-slate-700 text-slate-100"
+              />
+              <Button type="button" onClick={saveSettings} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-slate-950 whitespace-nowrap">
+                {saving ? "Saving..." : "Save"}
+              </Button>
             </div>
           </CardContent>
         </Card>
