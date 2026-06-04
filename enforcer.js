@@ -326,8 +326,24 @@ async function runCycle() {
   setTimeout(runCycle, delay);
 }
 
+// Startup DB integrity check — surfaces corruption immediately (the DB is tiny).
+function checkIntegrity() {
+  try {
+    const r = db.pragma("integrity_check");
+    const ok = Array.isArray(r) && r[0] && r[0].integrity_check === "ok";
+    if (ok) { console.log("[ENFORCER] DB integrity check: ok"); return; }
+    const detail = JSON.stringify(r);
+    console.error("[ENFORCER] DB INTEGRITY CHECK FAILED:", detail);
+    setStatus({ last_error: "DB integrity check failed: " + detail });
+    sendAlert("Guardarr: database integrity check FAILED on startup — consider restoring from data/backups/.");
+  } catch (e) {
+    console.error("[ENFORCER] integrity check error:", e.message);
+  }
+}
+
 // ───────────────────────────────── startup ─────────────────────────────────
 ensureStatusTable();
+checkIntegrity();
 console.log("[ENFORCER] Starting standalone enforcer...");
 runCycle();
 
