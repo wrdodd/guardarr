@@ -377,10 +377,10 @@ export default function RulesPage() {
                 </div>
                 <div>
                   <Label className="text-slate-300 mb-2 block">Active Days</Label>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="grid grid-cols-7 gap-1 sm:gap-1.5 max-w-md">
                     {DAYS.map(day => (
                       <button key={day} type="button" onClick={() => toggleDay(day)}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${selectedDays.includes(day) ? "bg-orange-500 text-slate-950" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"}`}>
+                        className={`py-1.5 rounded-md text-xs sm:text-sm font-medium text-center transition-colors ${selectedDays.includes(day) ? "bg-orange-500 text-slate-950" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"}`}>
                         {DAY_LABELS[day]}
                       </button>
                     ))}
@@ -566,38 +566,44 @@ export default function RulesPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-slate-400 text-sm space-y-1">
-                      <p><span className="text-slate-500">Days:</span> {formatDays(rule.days)}</p>
-                      <p><span className="text-slate-500">Time:</span> {rule.start_time} - {rule.end_time}</p>
+                  <CardContent className="pt-0">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mb-3">
+                      <span><span className="text-slate-500">Days:</span> {formatDays(rule.days)}</span>
+                      <span><span className="text-slate-500">Time:</span> {rule.start_time}–{rule.end_time}</span>
+                    </div>
+                    <div className="space-y-2">
                       {(rule.allowed_ratings || rule.blocked_ratings) && (
-                        <p>
-                          <span className="text-slate-500">🎬 Movies:</span>{" "}
-                          {rule.allowed_ratings ? (
-                            <span className="text-green-400">Allowed only: {rule.allowed_ratings}</span>
-                          ) : (
-                            <span>Blocked: {rule.blocked_ratings}</span>
-                          )}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs text-slate-500 mr-1">🎬 Movies</span>
+                          {(rule.allowed_ratings ? rule.allowed_ratings.split(",") : []).filter(Boolean).map((r) => (
+                            <span key={"ma" + r} className="text-xs px-2 py-0.5 rounded-md bg-green-500/15 text-green-300 border border-green-500/30">{r.trim()}</span>
+                          ))}
+                          {!rule.allowed_ratings && (rule.blocked_ratings ? rule.blocked_ratings.split(",") : []).filter(Boolean).map((r) => (
+                            <span key={"mb" + r} className="text-xs px-2 py-0.5 rounded-md bg-red-500/15 text-red-300 border border-red-500/30 line-through">{r.trim()}</span>
+                          ))}
+                        </div>
                       )}
                       {(rule.allowed_tv_ratings || rule.blocked_tv_ratings) && (
-                        <p>
-                          <span className="text-slate-500">📺 TV:</span>{" "}
-                          {rule.allowed_tv_ratings ? (
-                            <span className="text-green-400">Allowed only: {rule.allowed_tv_ratings}</span>
-                          ) : (
-                            <span>Blocked: {rule.blocked_tv_ratings}</span>
-                          )}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs text-slate-500 mr-1">📺 TV</span>
+                          {(rule.allowed_tv_ratings ? rule.allowed_tv_ratings.split(",") : []).filter(Boolean).map((r) => (
+                            <span key={"ta" + r} className="text-xs px-2 py-0.5 rounded-md bg-green-500/15 text-green-300 border border-green-500/30">{r.trim()}</span>
+                          ))}
+                          {!rule.allowed_tv_ratings && (rule.blocked_tv_ratings ? rule.blocked_tv_ratings.split(",") : []).filter(Boolean).map((r) => (
+                            <span key={"tb" + r} className="text-xs px-2 py-0.5 rounded-md bg-red-500/15 text-red-300 border border-red-500/30 line-through">{r.trim()}</span>
+                          ))}
+                        </div>
                       )}
-                      {rule.include_labels && (
-                        <p><span className="text-slate-500">Include:</span> {rule.include_labels}</p>
-                      )}
-                      {rule.exclude_labels && (
-                        <p><span className="text-slate-500">Exclude:</span> {rule.exclude_labels}</p>
-                      )}
-                      {(rule.priority || 0) > 0 && (
-                        <p><span className="text-slate-500">Priority:</span> {rule.priority}</p>
+                      {(rule.include_labels || rule.exclude_labels) && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs text-slate-500 mr-1">Labels</span>
+                          {(rule.include_labels ? rule.include_labels.split(",") : []).filter(Boolean).map((l) => (
+                            <span key={"li" + l} className="text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">{l.trim()}</span>
+                          ))}
+                          {(rule.exclude_labels ? rule.exclude_labels.split(",") : []).filter(Boolean).map((l) => (
+                            <span key={"le" + l} className="text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-500 border border-slate-700 line-through">{l.trim()}</span>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </CardContent>
