@@ -20,10 +20,19 @@ export default function ActivityPage() {
   const { toast } = useToast();
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<any>(null);
 
   useEffect(() => {
     fetchActivity();
+    fetchSummary();
   }, []);
+
+  const fetchSummary = async () => {
+    try {
+      const res = await fetch("/api/activity/summary", { cache: "no-store" });
+      if (res.ok) setSummary(await res.json());
+    } catch (error) { /* ignore */ }
+  };
 
   const fetchActivity = async () => {
     try {
@@ -74,6 +83,23 @@ export default function ActivityPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {summary && summary.total > 0 && (
+          <Card className="bg-slate-900 border-slate-800 mb-6">
+            <CardContent className="py-4">
+              <p className="text-slate-300 text-sm mb-3"><span className="text-orange-400 font-semibold">{summary.total}</span> events in the last 7 days</p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {summary.byAction.map((a: any) => (
+                  <span key={a.action} className="text-xs px-2 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
+                    {a.action.replace(/_/g, " ")}: <span className="text-slate-100 font-medium">{a.n}</span>
+                  </span>
+                ))}
+              </div>
+              {summary.topUsers && summary.topUsers.length > 0 && (
+                <p className="text-xs text-slate-500">Most active: {summary.topUsers.map((u: any) => `${u.plex_username} (${u.n})`).join(", ")}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
         {entries.length === 0 ? (
           <Card className="bg-slate-900 border-slate-800">
             <CardContent className="py-12 text-center">
