@@ -1,5 +1,7 @@
 import { startEnforcer } from "@/lib/enforcer";
 
+export const dynamic = "force-dynamic";
+
 // Track if enforcer is already started (singleton)
 let enforcerStarted = false;
 

@@ -273,7 +273,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-6">
             <div>
               <Label className="text-slate-300">Plex Server URL</Label>
-              <div className="flex gap-2 mt-1">
+              <div className="flex flex-col sm:flex-row gap-2 mt-1">
                 <Input
                   value={settings.plex_server_url}
                   onChange={(e) => setSettings({ ...settings, plex_server_url: e.target.value })}
@@ -319,7 +319,7 @@ export default function SettingsPage() {
 
             <div>
               <Label className="text-slate-300">Admin Token</Label>
-              <div className="flex gap-2 mt-1">
+              <div className="flex flex-col sm:flex-row gap-2 mt-1">
                 <Input
                   type="password"
                   value={settings.plex_admin_token}
@@ -350,7 +350,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={testConnection}
                 disabled={testing || !settings.plex_server_url || (!settings.plex_admin_token && !tokenConfigured)}
