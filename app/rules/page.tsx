@@ -324,17 +324,28 @@ export default function RulesPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={editingRule ? updateRule : createRule} className="space-y-6">
+              <form onSubmit={editingRule ? updateRule : createRule} className="space-y-7">
                 {!editingRule && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-slate-500">Quick preset:</span>
-                    {PRESETS.map((p) => (
-                      <button key={p.key} type="button" onClick={() => applyPreset(p)} className="text-xs px-2.5 py-1 rounded-full border border-orange-500/40 text-orange-300 hover:bg-orange-500/10">
-                        {p.label}
-                      </button>
-                    ))}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-orange-400/80">Quick start</span>
+                      <div className="h-px flex-1 bg-slate-800" />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {PRESETS.map((p) => (
+                        <button key={p.key} type="button" onClick={() => applyPreset(p)} className="text-sm px-3 py-1.5 rounded-full border border-orange-500/40 text-orange-300 hover:bg-orange-500/10 transition-colors">
+                          {p.label}
+                        </button>
+                      ))}
+                      <span className="text-xs text-slate-600">Pre-fills the form — tweak, then save.</span>
+                    </div>
                   </div>
                 )}
+
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-orange-400/80">Basics</span>
+                  <div className="h-px flex-1 bg-slate-800" />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">
                     <Label className="text-slate-300">Rule Name</Label>
@@ -360,126 +371,104 @@ export default function RulesPage() {
                   </div>
                 </div>
 
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-orange-400/80">Schedule</span>
+                  <div className="h-px flex-1 bg-slate-800" />
+                </div>
                 <div>
                   <Label className="text-slate-300 mb-2 block">Active Days</Label>
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-1.5">
                     {DAYS.map(day => (
-                      <label key={day} className="flex items-center gap-1 cursor-pointer">
-                        <Checkbox
-                          checked={selectedDays.includes(day)}
-                          onCheckedChange={() => toggleDay(day)}
-                        />
-                        <span className="text-slate-400 text-sm">{DAY_LABELS[day]}</span>
-                      </label>
+                      <button key={day} type="button" onClick={() => toggleDay(day)}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${selectedDays.includes(day) ? "bg-orange-500 text-slate-950" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"}`}>
+                        {DAY_LABELS[day]}
+                      </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 max-w-md">
                   <div>
-                    <Label className="text-slate-300">Start Time</Label>
-                    <Input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      className="bg-slate-800 border-slate-700 text-slate-100"
-                    />
+                    <Label className="text-slate-300">Active from</Label>
+                    <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="bg-slate-800 border-slate-700 text-slate-100 mt-1" />
                   </div>
                   <div>
-                    <Label className="text-slate-300">End Time</Label>
-                    <Input
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      className="bg-slate-800 border-slate-700 text-slate-100"
-                    />
+                    <Label className="text-slate-300">Until</Label>
+                    <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="bg-slate-800 border-slate-700 text-slate-100 mt-1" />
                   </div>
                 </div>
+                <p className="text-slate-600 text-xs">Overnight windows work too (e.g. 20:00 → 06:00); all-day = 00:00 → 23:59.</p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-orange-400/80">Content restrictions</span>
+                  <div className="h-px flex-1 bg-slate-800" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Movie Ratings - Left Side */}
-                  <div className="space-y-4 p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+                  <div className="space-y-4 p-4 rounded-xl border border-slate-700/50 bg-slate-800/30">
                     <h3 className="text-slate-200 font-medium text-sm flex items-center gap-2">
                       🎬 Movie Ratings
                     </h3>
                     <div>
-                      <Label className="text-slate-300 mb-2 block text-xs">Allowed (whitelist)</Label>
-                      <div className="flex flex-wrap gap-3">
+                      <Label className="text-slate-400 mb-1.5 block text-xs uppercase tracking-wide">Allow only</Label>
+                      <div className="flex flex-wrap gap-1.5">
                         {MOVIE_RATINGS.map(rating => (
-                          <label key={rating} className="flex items-center gap-1 cursor-pointer">
-                            <Checkbox
-                              checked={allowedRatings.includes(rating)}
-                              onCheckedChange={() => toggleAllowedRating(rating)}
-                            />
-                            <span className="text-slate-400 text-sm">{rating}</span>
-                          </label>
+                          <button key={rating} type="button" onClick={() => toggleAllowedRating(rating)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${allowedRatings.includes(rating) ? "bg-green-500/20 text-green-300 border-green-500/40" : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600"}`}>
+                            {rating}
+                          </button>
                         ))}
                       </div>
-                      <p className="text-slate-500 text-xs mt-1">Only allow these (blank = allow all)</p>
-                      {allowedRatings.length > 0 && (
-                        <p className="text-amber-400 text-xs mt-1">⚠️ Blocked ignored when whitelist is active</p>
-                      )}
+                      <p className="text-slate-500 text-xs mt-1.5">Blank = allow everything</p>
                     </div>
-                    <div className={allowedRatings.length > 0 ? "opacity-50" : ""}>
-                      <Label className="text-slate-300 mb-2 block text-xs">Blocked (blacklist)</Label>
-                      <div className="flex flex-wrap gap-3">
+                    <div className={allowedRatings.length > 0 ? "opacity-40 pointer-events-none" : ""}>
+                      <Label className="text-slate-400 mb-1.5 block text-xs uppercase tracking-wide">Block</Label>
+                      <div className="flex flex-wrap gap-1.5">
                         {MOVIE_RATINGS.map(rating => (
-                          <label key={rating} className="flex items-center gap-1 cursor-pointer">
-                            <Checkbox
-                              checked={blockedRatings.includes(rating)}
-                              onCheckedChange={() => toggleBlockedRating(rating)}
-                            />
-                            <span className="text-slate-400 text-sm">{rating}</span>
-                          </label>
+                          <button key={rating} type="button" onClick={() => toggleBlockedRating(rating)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${blockedRatings.includes(rating) ? "bg-red-500/20 text-red-300 border-red-500/40" : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600"}`}>
+                            {rating}
+                          </button>
                         ))}
                       </div>
-                      <p className="text-slate-500 text-xs mt-1">Block these ratings</p>
+                      {allowedRatings.length > 0 && <p className="text-amber-400/80 text-xs mt-1.5">Ignored while a whitelist is set</p>}
                     </div>
                   </div>
 
                   {/* TV Ratings - Right Side */}
-                  <div className="space-y-4 p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+                  <div className="space-y-4 p-4 rounded-xl border border-slate-700/50 bg-slate-800/30">
                     <h3 className="text-slate-200 font-medium text-sm flex items-center gap-2">
                       📺 TV Ratings
                     </h3>
                     <div>
-                      <Label className="text-slate-300 mb-2 block text-xs">Allowed (whitelist)</Label>
-                      <div className="flex flex-wrap gap-3">
+                      <Label className="text-slate-400 mb-1.5 block text-xs uppercase tracking-wide">Allow only</Label>
+                      <div className="flex flex-wrap gap-1.5">
                         {TV_RATINGS.map(rating => (
-                          <label key={rating} className="flex items-center gap-1 cursor-pointer">
-                            <Checkbox
-                              checked={allowedTvRatings.includes(rating)}
-                              onCheckedChange={() => toggleAllowedTvRating(rating)}
-                            />
-                            <span className="text-slate-400 text-sm">{rating}</span>
-                          </label>
+                          <button key={rating} type="button" onClick={() => toggleAllowedTvRating(rating)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${allowedTvRatings.includes(rating) ? "bg-green-500/20 text-green-300 border-green-500/40" : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600"}`}>
+                            {rating}
+                          </button>
                         ))}
                       </div>
-                      <p className="text-slate-500 text-xs mt-1">Only allow these (blank = allow all)</p>
-                      {allowedTvRatings.length > 0 && (
-                        <p className="text-amber-400 text-xs mt-1">⚠️ Blocked ignored when whitelist is active</p>
-                      )}
+                      <p className="text-slate-500 text-xs mt-1.5">Blank = allow everything</p>
                     </div>
-                    <div className={allowedTvRatings.length > 0 ? "opacity-50" : ""}>
-                      <Label className="text-slate-300 mb-2 block text-xs">Blocked (blacklist)</Label>
-                      <div className="flex flex-wrap gap-3">
+                    <div className={allowedTvRatings.length > 0 ? "opacity-40 pointer-events-none" : ""}>
+                      <Label className="text-slate-400 mb-1.5 block text-xs uppercase tracking-wide">Block</Label>
+                      <div className="flex flex-wrap gap-1.5">
                         {TV_RATINGS.map(rating => (
-                          <label key={rating} className="flex items-center gap-1 cursor-pointer">
-                            <Checkbox
-                              checked={blockedTvRatings.includes(rating)}
-                              onCheckedChange={() => toggleBlockedTvRating(rating)}
-                            />
-                            <span className="text-slate-400 text-sm">{rating}</span>
-                          </label>
+                          <button key={rating} type="button" onClick={() => toggleBlockedTvRating(rating)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${blockedTvRatings.includes(rating) ? "bg-red-500/20 text-red-300 border-red-500/40" : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600"}`}>
+                            {rating}
+                          </button>
                         ))}
                       </div>
-                      <p className="text-slate-500 text-xs mt-1">Block these ratings</p>
+                      {allowedTvRatings.length > 0 && <p className="text-amber-400/80 text-xs mt-1.5">Ignored while a whitelist is set</p>}
                     </div>
                   </div>
                 </div>
 
                 {/* Block unrated convenience toggle (adds NR to the movie blocklist) */}
-                <label className="flex items-center gap-2 cursor-pointer p-3 rounded-lg border border-slate-700/50 bg-slate-800/30">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-slate-700/50 bg-slate-800/30 hover:border-slate-600/50 transition-colors">
                   <Checkbox checked={blockedRatings.includes("NR")} onCheckedChange={() => toggleBlockedRating("NR")} />
                   <div>
                     <span className="text-slate-200 text-sm font-medium">🚫 Block unrated content</span>
@@ -487,36 +476,27 @@ export default function RulesPage() {
                   </div>
                 </label>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-slate-300">Include Labels (optional)</Label>
-                    <Input
-                      value={includeLabels}
-                      onChange={(e) => setIncludeLabels(e.target.value)}
-                      placeholder="family,kids"
-                      className="bg-slate-800 border-slate-700 text-slate-100"
-                    />
+                    <Label className="text-slate-300">Include Labels <span className="text-slate-600 font-normal">(optional)</span></Label>
+                    <Input value={includeLabels} onChange={(e) => setIncludeLabels(e.target.value)} placeholder="family, kids" className="bg-slate-800 border-slate-700 text-slate-100 mt-1" />
                   </div>
                   <div>
-                    <Label className="text-slate-300">Exclude Labels (optional)</Label>
-                    <Input
-                      value={excludeLabels}
-                      onChange={(e) => setExcludeLabels(e.target.value)}
-                      placeholder="mature,adult"
-                      className="bg-slate-800 border-slate-700 text-slate-100"
-                    />
+                    <Label className="text-slate-300">Exclude Labels <span className="text-slate-600 font-normal">(optional)</span></Label>
+                    <Input value={excludeLabels} onChange={(e) => setExcludeLabels(e.target.value)} placeholder="mature, adult" className="bg-slate-800 border-slate-700 text-slate-100 mt-1" />
                   </div>
                 </div>
+                <p className="text-slate-600 text-xs -mt-3">Comma-separated Plex labels — Include shows only matching content, Exclude hides matching content.</p>
 
-                <div className="flex gap-3">
-                  <Button type="submit" className="bg-orange-500 hover:bg-orange-600 text-slate-950">
-                    {editingRule ? "Update Rule" : "Create Rule"}
-                  </Button>
+                <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
                   {editingRule && (
-                    <Button type="button" variant="outline" onClick={cancelEdit} className="border-slate-700 text-slate-300">
+                    <Button type="button" variant="outline" onClick={cancelEdit} className="border-slate-700 text-slate-300 hover:bg-slate-800">
                       Cancel
                     </Button>
                   )}
+                  <Button type="submit" className="bg-orange-500 hover:bg-orange-600 text-slate-950 font-medium px-6">
+                    {editingRule ? "Update Rule" : "Create Rule"}
+                  </Button>
                 </div>
               </form>
             </CardContent>
