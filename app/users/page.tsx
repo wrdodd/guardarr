@@ -444,7 +444,7 @@ export default function UsersPage() {
 
       <main className="container mx-auto px-4 py-8">
         {/* Default rule auto-applied to new users on sync (#3) */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-3">
           <span className="text-sm text-slate-300">Default rule for <span className="text-orange-400">new</span> users:</span>
           <select
             value={defaultRuleId}
@@ -459,7 +459,7 @@ export default function UsersPage() {
           <span className="text-xs text-slate-500 sm:ml-2">Auto-applied when a new Plex user appears on sync.</span>
         </div>
         {/* Bulk assign/remove a rule (#4) */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-3">
           <span className="text-sm text-slate-300">Bulk:</span>
           <select value={bulkRuleId} onChange={(e) => setBulkRuleId(e.target.value)} className="bg-slate-800 border border-slate-700 rounded-md text-slate-100 text-sm px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500">
             <option value="">Select a rule…</option>
@@ -666,20 +666,18 @@ export default function UsersPage() {
                         ) : (
                           <>
                             <p className="text-slate-400 text-sm mb-3">Assigned Rules:</p>
-                            <div className="flex flex-wrap gap-3">
+                            <div className="flex flex-wrap gap-1.5">
                               {rules.map((rule) => {
                                 const assigned = isRuleAssigned(user, rule.id);
                                 return (
-                                  <label
+                                  <button
                                     key={rule.id}
-                                    className="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-md cursor-pointer hover:bg-slate-750"
+                                    type="button"
+                                    onClick={() => toggleRule(user.id, rule.id, assigned)}
+                                    className={`text-sm px-3 py-1.5 rounded-md border transition-colors ${assigned ? "bg-orange-500/20 text-orange-300 border-orange-500/40" : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600"}`}
                                   >
-                                    <Checkbox
-                                      checked={assigned}
-                                      onCheckedChange={() => toggleRule(user.id, rule.id, assigned)}
-                                    />
-                                    <span className="text-slate-300 text-sm">{rule.name}</span>
-                                  </label>
+                                    {rule.name}
+                                  </button>
                                 );
                               })}
                               {rules.length === 0 && (
