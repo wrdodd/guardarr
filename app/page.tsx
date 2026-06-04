@@ -49,7 +49,7 @@ export default function Home() {
 
   const fetchEnforcerStatus = async () => {
     try {
-      const res = await fetch("/api/enforcer/status");
+      const res = await fetch("/api/enforcer/status", { cache: "no-store" });
       if (res.ok) setEnforcerStatus(await res.json());
     } catch (error) {
       console.error("[FRONTEND] Failed to fetch enforcer status", error);
@@ -206,9 +206,9 @@ export default function Home() {
     <div className="min-h-screen bg-slate-950">
       <header className="border-b border-slate-800 bg-slate-900/50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3"><img src="/logo.svg" alt="Guardarr" className="h-16 w-16" /><h1 className="text-2xl font-bold text-orange-500">Guardarr <span className="text-slate-500 text-sm font-normal">v{process.env.NEXT_PUBLIC_APP_VERSION}</span></h1></div>
-          <div className="flex items-center gap-4">
-            <span className="text-slate-400">{session.user?.name}</span>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0"><img src="/logo.svg" alt="Guardarr" className="h-10 w-10 sm:h-16 sm:w-16 shrink-0" /><h1 className="text-xl sm:text-2xl font-bold text-orange-500 truncate">Guardarr <span className="text-slate-500 text-sm font-normal">v{process.env.NEXT_PUBLIC_APP_VERSION}</span></h1></div>
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <span className="text-slate-400 hidden sm:inline max-w-[30vw] truncate">{session.user?.name}</span>
             <Button
               variant="outline"
               onClick={() => signOut()}
