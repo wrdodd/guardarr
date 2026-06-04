@@ -1,8 +1,22 @@
+# Guardarr — deployment.
+#
+# Requires an .env.local in this directory holding the secrets (copy .env.example):
+#   PLEX_SERVER_URL, PLEX_ADMIN_TOKEN, NEXTAUTH_URL, NEXTAUTH_SECRET
+# (PLEX_ADMIN_TOKEN is only a fallback — the real token is stored in the DB once you
+# sign in with Plex.) The DB persists in ./data, which is bind-mounted; back it up.
+#
+# Deploy:   docker compose up -d --build
+# Logs:     docker compose logs -f
+#
+# NOTE: production currently runs this image via `docker run` on the default bridge
+# (the published :4600 is what NPM proxies to, so the network choice is immaterial).
+# `docker compose up` produces an equivalent container on a compose-managed bridge.
 services:
   guardarr:
     build:
       context: .
       dockerfile: Dockerfile
+    image: guardarr_guardarr:latest
     container_name: guardarr
     ports:
       - 4600:4600
@@ -16,9 +30,3 @@ services:
       - ./data:/app/data
     user: "1000:1000"
     restart: unless-stopped
-    networks:
-      - guardarr-network
-
-networks:
-  guardarr-network:
-    driver: bridge

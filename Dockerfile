@@ -2,9 +2,10 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies first for better caching
+# Install dependencies first for better caching.
+# npm ci = reproducible install from the lockfile (fails if lock is out of sync).
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 
 # Copy source - this layer will change when source changes
 COPY . .
