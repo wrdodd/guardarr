@@ -49,6 +49,7 @@ export default function UsersPage() {
   const [bypasses, setBypasses] = useState<Record<number, Bypass>>({});
   const [bypassDropdown, setBypassDropdown] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [defaultRuleId, setDefaultRuleId] = useState("");
 
   // Tick every second for countdown timers
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function UsersPage() {
     fetchUsers(showDeactivated);
     fetchRules();
     fetchBypasses();
+    fetchDefaultRule();
   }, [showDeactivated]);
 
   const fetchUsers = async (includeDeactivated = false) => {
@@ -85,6 +87,32 @@ export default function UsersPage() {
       setRules(data);
     } catch (error) {
       console.error("Failed to load rules", error);
+    }
+  };
+
+  const fetchDefaultRule = async () => {
+    try {
+      const res = await fetch("/api/settings/default-rule", { cache: "no-store" });
+      if (res.ok) {
+        const d = await res.json();
+        setDefaultRuleId(d.default_rule_id || "");
+      }
+    } catch (error) {
+      console.error("Failed to load default rule", error);
+    }
+  };
+
+  const saveDefaultRule = async (value: string) => {
+    setDefaultRuleId(value);
+    try {
+      await fetch("/api/settings/default-rule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ default_rule_id: value }),
+      });
+      toast({ title: "Saved", description: value ? "New users will get this rule automatically." : "Default rule cleared." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save default rule", variant: "destructive" });
     }
   };
 
@@ -380,6 +408,21 @@ export default function UsersPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Default rule auto-applied to new users on sync (#3) */}
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+          <span className="text-sm text-slate-300">Default rule for <span className="text-orange-400">new</span> users:</span>
+          <select
+            value={defaultRuleId}
+            onChange={(e) => saveDefaultRule(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-md text-slate-100 text-sm px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500"
+          >
+            <option value="">None (no auto-apply)</option>
+            {rules.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </select>
+          <span className="text-xs text-slate-500 sm:ml-2">Auto-applied when a new Plex user appears on sync.</span>
+        </div>
         {users.length === 0 ? (
           <Card className="bg-slate-900 border-slate-800">
             <CardContent className="py-12 text-center">

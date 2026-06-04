@@ -100,6 +100,25 @@ export async function POST() {
         deactivated = excluded.deactivated
     `);
 
+    // (was referenced below but never defined — marks a user gone-from-Plex as deactivated)
+    const markDeactivated = db.prepare(
+      "UPDATE users SET deactivated = 1, updated_at = datetime('now') WHERE plex_id = ?"
+    );
+
+    // #3 — auto-apply a configured default rule to brand-new (non-admin) users.
+    const defaultRuleId = getSetting("default_rule_id", "");
+    const assignDefault = db.prepare("INSERT OR IGNORE INTO user_rules (user_id, rule_id) VALUES (?, ?)");
+    const newUsersAssigned: string[] = [];
+    function maybeAssignDefault(existed: any, plexId: string, username: string, isAdmin: boolean, isDeactivated: boolean) {
+      if (existed || !defaultRuleId || isAdmin || isDeactivated) return;
+      const row = db.prepare("SELECT id FROM users WHERE plex_id = ?").get(plexId) as { id: number } | undefined;
+      const ruleExists = db.prepare("SELECT id FROM rules WHERE id = ?").get(defaultRuleId);
+      if (row && ruleExists) {
+        assignDefault.run(row.id, defaultRuleId);
+        newUsersAssigned.push(username);
+      }
+    }
+
     let syncedCount = 0;
     const activePlexIds = new Set<string>();
     const allReturnedIds = new Set<string>();
@@ -150,6 +169,7 @@ export async function POST() {
         const isHome = plexTvUsers[plexId] ? 0 : 1; // 0=shared/friend, 1=home/managed
         const isRestricted = account.restricted === true;
 
+        const existed = db.prepare("SELECT id FROM users WHERE plex_id = ?").get(plexId);
         upsert.run(
           plexId,
           username,
@@ -160,6 +180,7 @@ export async function POST() {
           isRestricted ? 1 : 0,
           isDeactivated ? 1 : 0
         );
+        maybeAssignDefault(existed, plexId, username, isAdmin, isDeactivated);
         syncedCount++;
       }
     }
@@ -180,9 +201,11 @@ export async function POST() {
       // Skip if already processed from local accounts
       if (allReturnedIds.has(id)) continue;
       try {
+        const fname = user.username || user.title || user.friendlyName || `User ${id}`;
+        const existedFriend = db.prepare("SELECT id FROM users WHERE plex_id = ?").get(id);
         upsert.run(
           id,
-          user.username || user.title || user.friendlyName || `User ${id}`,
+          fname,
           user.email || null,
           user.thumb || null,
           0,
@@ -190,6 +213,7 @@ export async function POST() {
           user.restricted ? 1 : 0,
           0 // plex.tv friends are active (not deactivated)
         );
+        maybeAssignDefault(existedFriend, id, fname, false, false);
         syncedCount++;
       } catch (e) {
         // User likely already exists, ignore
@@ -201,7 +225,14 @@ export async function POST() {
       "INSERT INTO activity_log (plex_username, action, details) VALUES (?, ?, ?)"
     ).run("System", "user_sync", `Synced ${syncedCount} users from Plex`);
 
-    return NextResponse.json({ success: true, synced: syncedCount });
+    if (newUsersAssigned.length) {
+      const rn = db.prepare("SELECT name FROM rules WHERE id = ?").get(defaultRuleId) as { name: string } | undefined;
+      db.prepare(
+        "INSERT INTO activity_log (plex_username, rule_name, action, details) VALUES (?, ?, ?, ?)"
+      ).run("System", rn?.name || "", "default_rule_applied", `Auto-applied default rule to new user(s): ${newUsersAssigned.join(", ")}`);
+    }
+
+    return NextResponse.json({ success: true, synced: syncedCount, defaultApplied: newUsersAssigned.length });
   } catch (error: any) {
     console.error("Sync error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
