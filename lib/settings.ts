@@ -32,6 +32,33 @@ export function getTimezone(): string {
   return getSetting("timezone") || "America/Los_Angeles";
 }
 
+/** True if a Plex admin token is configured (DB or env) — without exposing its value. */
+export function isAdminTokenConfigured(): boolean {
+  return !!getSetting("plex_admin_token");
+}
+
+export interface EnforcerStatus {
+  last_run: string | null;
+  last_success: string | null;
+  last_error: string | null;
+  consecutive_failures: number;
+  token_valid: number;
+  last_backup_at: string | null;
+  updated_at: string | null;
+}
+
+/** Read the enforcer's single-row health record (written by enforcer.js). */
+export function getEnforcerStatus(): EnforcerStatus | null {
+  try {
+    const row = db
+      .prepare("SELECT * FROM enforcer_status WHERE id = 1")
+      .get() as EnforcerStatus | undefined;
+    return row || null;
+  } catch {
+    return null;
+  }
+}
+
 export function formatLocalTime(date: Date): string {
   const timezone = getTimezone();
   return new Intl.DateTimeFormat("en-US", {

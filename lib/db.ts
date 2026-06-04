@@ -170,6 +170,25 @@ export function initDatabase() {
       UNIQUE(user_id, rule_id)
     )
   `);
+
+  // Enforcer status (single-row health record surfaced in the UI)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS enforcer_status (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      last_run DATETIME,
+      last_success DATETIME,
+      last_error TEXT,
+      consecutive_failures INTEGER DEFAULT 0,
+      token_valid INTEGER DEFAULT 1,
+      last_backup_at DATETIME,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  try {
+    db.prepare("INSERT INTO enforcer_status (id) VALUES (1)").run();
+  } catch (e) {
+    // Row already exists, ignore
+  }
 }
 
 // Initialize on module load (but not during build)

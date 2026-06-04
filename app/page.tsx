@@ -36,14 +36,25 @@ export default function Home() {
   const { data: session, status } = useSession();
   const [activeData, setActiveData] = useState<ActiveRestrictionsResponse | null>(null);
   const [loadingRestrictions, setLoadingRestrictions] = useState(true);
+  const [enforcerStatus, setEnforcerStatus] = useState<any>(null);
 
   useEffect(() => {
     if (session) {
       fetchActiveRestrictions();
-      const interval = setInterval(fetchActiveRestrictions, 30000); // refresh every 30s
+      fetchEnforcerStatus();
+      const interval = setInterval(() => { fetchActiveRestrictions(); fetchEnforcerStatus(); }, 30000); // refresh every 30s
       return () => clearInterval(interval);
     }
   }, [session]);
+
+  const fetchEnforcerStatus = async () => {
+    try {
+      const res = await fetch("/api/enforcer/status");
+      if (res.ok) setEnforcerStatus(await res.json());
+    } catch (error) {
+      console.error("[FRONTEND] Failed to fetch enforcer status", error);
+    }
+  };
 
   const fetchActiveRestrictions = async () => {
     try {
@@ -218,6 +229,35 @@ export default function Home() {
               activate based on time of day.
             </p>
           </section>
+
+          {/* Enforcer health banner */}
+          {enforcerStatus && (
+            (enforcerStatus.tokenConfigured === false || enforcerStatus.tokenValid === false || (enforcerStatus.consecutiveFailures || 0) > 0) ? (
+              <div className="flex items-start gap-3 rounded-md border border-amber-500/50 bg-amber-900/20 p-4">
+                <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 shrink-0" />
+                <div className="text-sm">
+                  <p className="text-amber-300 font-medium">
+                    Enforcement is not healthy
+                    {enforcerStatus.tokenConfigured === false
+                      ? " — no Plex token configured."
+                      : enforcerStatus.tokenValid === false
+                      ? " — the Plex admin token is invalid."
+                      : ` — ${enforcerStatus.consecutiveFailures} consecutive failure(s).`}
+                  </p>
+                  <p className="text-amber-400/70 mt-1">
+                    {enforcerStatus.lastError || "Filters may not be getting applied."}{" "}
+                    <Link href="/settings" className="underline hover:text-amber-200">Re-authenticate in Settings →</Link>
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-900/10 px-4 py-3 text-sm">
+                <Shield className="h-4 w-4 text-green-400 shrink-0" />
+                <span className="text-green-300">Enforcement healthy</span>
+                {enforcerStatus.lastSuccess && <span className="text-slate-500">· last run {enforcerStatus.lastSuccess}</span>}
+              </div>
+            )
+          )}
 
           {/* Active Restrictions Dashboard */}
           <Card className="bg-slate-900 border-slate-800">
