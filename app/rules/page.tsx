@@ -446,6 +446,15 @@ export default function RulesPage() {
                   </div>
                 </div>
 
+                {/* Block unrated convenience toggle (adds NR to the movie blocklist) */}
+                <label className="flex items-center gap-2 cursor-pointer p-3 rounded-lg border border-slate-700/50 bg-slate-800/30">
+                  <Checkbox checked={blockedRatings.includes("NR")} onCheckedChange={() => toggleBlockedRating("NR")} />
+                  <div>
+                    <span className="text-slate-200 text-sm font-medium">🚫 Block unrated content</span>
+                    <p className="text-slate-500 text-xs">Adds NR / &ldquo;Not Rated&rdquo; to the movie blocklist (ignored if a movie whitelist is set)</p>
+                  </div>
+                </label>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-slate-300">Include Labels (optional)</Label>
