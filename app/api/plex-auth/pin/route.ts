@@ -82,6 +82,16 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
 
     if (data.authToken) {
+      // Persist the freshly-obtained Plex token as the admin token so the enforcer and
+      // every server-side read always have a valid token. Doing this here (at the source,
+      // server-side) means ANY sign-in path — login OR the settings popup — updates the DB,
+      // and re-signing-in after a token rotation refreshes it automatically. Previously the
+      // popup path only filled a form field (needed a manual Save), so the DB stayed empty
+      // and the enforcer silently fell back to the stale PLEX_ADMIN_TOKEN env var (401s).
+      db.prepare(
+        "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
+      ).run("plex_admin_token", data.authToken);
+
       return NextResponse.json({ authorized: true, token: data.authToken });
     }
 
