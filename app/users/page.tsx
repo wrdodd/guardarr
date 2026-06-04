@@ -50,6 +50,7 @@ export default function UsersPage() {
   const [bypassDropdown, setBypassDropdown] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   const [defaultRuleId, setDefaultRuleId] = useState("");
+  const [bulkRuleId, setBulkRuleId] = useState("");
 
   // Tick every second for countdown timers
   useEffect(() => {
@@ -114,6 +115,26 @@ export default function UsersPage() {
     } catch (error) {
       toast({ title: "Error", description: "Failed to save default rule", variant: "destructive" });
     }
+  };
+
+  // Bulk assign/remove a rule across all non-admin, active users (#4).
+  const bulkApply = async (action: "add" | "remove") => {
+    const rule = rules.find((r: any) => String(r.id) === String(bulkRuleId));
+    if (!rule) { toast({ title: "Pick a rule first", variant: "destructive" }); return; }
+    const targets = users.filter((u: any) => !u.is_admin && !u.deactivated);
+    if (!targets.length) return;
+    if (!window.confirm(`${action === "add" ? "Assign" : "Remove"} rule "${rule.name}" ${action === "add" ? "to" : "from"} all ${targets.length} non-admin user(s)?`)) return;
+    for (const u of targets) {
+      try {
+        if (action === "add") {
+          await fetch(`/api/users/${u.id}/rules`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rule_id: rule.id }) });
+        } else {
+          await fetch(`/api/users/${u.id}/rules?rule_id=${rule.id}`, { method: "DELETE" });
+        }
+      } catch (e) { /* continue with the rest */ }
+    }
+    await fetchUsers(showDeactivated);
+    toast({ title: "Bulk update complete", description: `${action === "add" ? "Assigned" : "Removed"} "${rule.name}" ${action === "add" ? "to" : "from"} ${targets.length} user(s).` });
   };
 
   const fetchBypasses = async () => {
@@ -422,6 +443,17 @@ export default function UsersPage() {
             ))}
           </select>
           <span className="text-xs text-slate-500 sm:ml-2">Auto-applied when a new Plex user appears on sync.</span>
+        </div>
+        {/* Bulk assign/remove a rule (#4) */}
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+          <span className="text-sm text-slate-300">Bulk:</span>
+          <select value={bulkRuleId} onChange={(e) => setBulkRuleId(e.target.value)} className="bg-slate-800 border border-slate-700 rounded-md text-slate-100 text-sm px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <option value="">Select a rule…</option>
+            {rules.map((r) => (<option key={r.id} value={r.id}>{r.name}</option>))}
+          </select>
+          <Button type="button" size="sm" disabled={!bulkRuleId} onClick={() => bulkApply("add")} className="bg-orange-500 hover:bg-orange-600 text-slate-950">Assign to all</Button>
+          <Button type="button" size="sm" variant="outline" disabled={!bulkRuleId} onClick={() => bulkApply("remove")} className="border-slate-700 text-slate-300 hover:bg-slate-800">Remove from all</Button>
+          <span className="text-xs text-slate-500 sm:ml-2">Applies to all non-admin, active users.</span>
         </div>
         {users.length === 0 ? (
           <Card className="bg-slate-900 border-slate-800">

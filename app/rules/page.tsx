@@ -136,6 +136,28 @@ export default function RulesPage() {
     setShowForm(true);
   };
 
+  // Quick-start presets (#4) — pre-fill the create form with a sensible profile.
+  const PRESETS = [
+    { key: "littlekids", label: "Little Kids", name: "Little Kids", allowed: ["G", "PG"], tvAllowed: ["TV-Y", "TV-Y7", "TV-G", "TV-PG"], blocked: [] as string[], tvBlocked: [] as string[] },
+    { key: "tweens", label: "Tweens", name: "Tweens", allowed: ["G", "PG", "PG-13"], tvAllowed: ["TV-Y", "TV-Y7", "TV-G", "TV-PG", "TV-14"], blocked: [] as string[], tvBlocked: [] as string[] },
+    { key: "teens", label: "Teens", name: "Teens", allowed: [] as string[], tvAllowed: [] as string[], blocked: ["NC-17", "NR"], tvBlocked: ["TV-MA"] },
+  ];
+
+  const applyPreset = (p: any) => {
+    setName(p.name);
+    setSelectedDays(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
+    setStartTime("00:00");
+    setEndTime("23:59");
+    setAllowedRatings(p.allowed);
+    setBlockedRatings(p.blocked);
+    setAllowedTvRatings(p.tvAllowed);
+    setBlockedTvRatings(p.tvBlocked);
+    setIncludeLabels("");
+    setExcludeLabels("");
+    setPriority(0);
+    setEditingRule(null);
+  };
+
   const createRule = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -303,6 +325,16 @@ export default function RulesPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={editingRule ? updateRule : createRule} className="space-y-6">
+                {!editingRule && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-slate-500">Quick preset:</span>
+                    {PRESETS.map((p) => (
+                      <button key={p.key} type="button" onClick={() => applyPreset(p)} className="text-xs px-2.5 py-1 rounded-full border border-orange-500/40 text-orange-300 hover:bg-orange-500/10">
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">
                     <Label className="text-slate-300">Rule Name</Label>
