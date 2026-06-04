@@ -29,6 +29,18 @@ function buildFilter(allowed: string, blocked: string): string {
   return "";
 }
 
+// Build a Plex label filter clause from include/exclude labels.
+// Plex restriction filters are "|"-joined clauses, e.g. contentRating=G,PG|label=kids
+// (include) and label!=mature (exclude).
+function buildLabelClause(include: string, exclude: string): string {
+  const clauses: string[] = [];
+  const inc = (include || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const exc = (exclude || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (inc.length) clauses.push(`label=${inc.join(",")}`);
+  if (exc.length) clauses.push(`label!=${exc.join(",")}`);
+  return clauses.join("|");
+}
+
 // Check if current time falls within rule time window
 export function isRuleActive(rule: any): boolean {
   const now = new Date();
@@ -92,9 +104,11 @@ export async function applyRestrictions(plexUserId: string, rule: any, username:
       }
     }
     
-    const movieFilter = buildFilter(effectiveMovieAllowed, effectiveMovieBlocked);
-    const tvFilter = buildFilter(effectiveTvAllowed, effectiveTvBlocked);
-    
+    // Labels apply equally to movies and TV; append the label clause to each.
+    const labelClause = buildLabelClause(rule.include_labels, rule.exclude_labels);
+    const movieFilter = [buildFilter(effectiveMovieAllowed, effectiveMovieBlocked), labelClause].filter(Boolean).join("|");
+    const tvFilter = [buildFilter(effectiveTvAllowed, effectiveTvBlocked), labelClause].filter(Boolean).join("|");
+
     if (movieFilter) {
       console.log(`[ENFORCER] Movie filter: ${movieFilter}`);
     }
@@ -121,6 +135,8 @@ export async function applyRestrictions(plexUserId: string, rule: any, username:
     else if (rule.blocked_ratings) parts.push(`Movies blocked: ${rule.blocked_ratings}`);
     if (rule.allowed_tv_ratings) parts.push(`TV allowed: ${rule.allowed_tv_ratings}`);
     else if (rule.blocked_tv_ratings) parts.push(`TV blocked: ${rule.blocked_tv_ratings}`);
+    if (rule.include_labels) parts.push(`Labels: ${rule.include_labels}`);
+    if (rule.exclude_labels) parts.push(`Block labels: ${rule.exclude_labels}`);
     const restrictionDesc = parts.join(" | ") || "No ratings configured";
     console.log(`[ENFORCER] Applied restrictions to ${username}: ${restrictionDesc}`);
     
