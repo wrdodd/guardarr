@@ -36,6 +36,7 @@ export default function SettingsPage() {
     plex_admin_token: "",
     timezone: "America/Los_Angeles",
   });
+  const [tokenConfigured, setTokenConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -58,6 +59,7 @@ export default function SettingsPage() {
       if (event.origin !== window.location.origin) return;
       if (event.data?.type === "PLEX_AUTH_SUCCESS" && event.data?.token) {
         setSettings(prev => ({ ...prev, plex_admin_token: event.data.token }));
+        setTokenConfigured(true);
         setAdminTokenConnecting(false);
         if (popupClosedCheckerRef.current) {
           clearInterval(popupClosedCheckerRef.current);
@@ -142,9 +144,12 @@ export default function SettingsPage() {
     try {
       const res = await fetch("/api/settings");
       const data = await res.json();
+      // The API no longer returns the token (security) — only whether one is set.
+      // The token field is write-only: blank means "keep existing".
+      setTokenConfigured(!!data.plex_admin_token_configured);
       setSettings({
         plex_server_url: data.plex_server_url || "",
-        plex_admin_token: data.plex_admin_token || "",
+        plex_admin_token: "",
         timezone: data.timezone || "America/Los_Angeles",
       });
     } catch (error) {
@@ -163,6 +168,11 @@ export default function SettingsPage() {
         body: JSON.stringify(settings),
       });
       if (res.ok) {
+        // If a new token was entered, mark configured and clear the write-only field.
+        if (settings.plex_admin_token) {
+          setTokenConfigured(true);
+          setSettings(prev => ({ ...prev, plex_admin_token: "" }));
+        }
         toast({ title: "Success", description: "Settings saved" });
       } else {
         throw new Error("Failed to save");
@@ -273,7 +283,7 @@ export default function SettingsPage() {
                 <Button
                   type="button"
                   onClick={discoverServers}
-                  disabled={discoveringServers || !settings.plex_admin_token}
+                  disabled={discoveringServers || (!settings.plex_admin_token && !tokenConfigured)}
                   variant="outline"
                   className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 whitespace-nowrap"
                 >
@@ -314,7 +324,7 @@ export default function SettingsPage() {
                   type="password"
                   value={settings.plex_admin_token}
                   onChange={(e) => setSettings({ ...settings, plex_admin_token: e.target.value })}
-                  placeholder={settings.plex_admin_token ? "Token configured" : "No token set"}
+                  placeholder={tokenConfigured ? "Token configured — leave blank to keep" : "No token set"}
                   className="bg-slate-800 border-slate-700 text-slate-100"
                 />
                 <Button
@@ -343,7 +353,7 @@ export default function SettingsPage() {
             <div className="flex gap-3">
               <Button
                 onClick={testConnection}
-                disabled={testing || !settings.plex_server_url || !settings.plex_admin_token}
+                disabled={testing || !settings.plex_server_url || (!settings.plex_admin_token && !tokenConfigured)}
                 variant="outline"
                 className="border-slate-700 text-slate-300 hover:bg-slate-800"
               >

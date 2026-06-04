@@ -30,5 +30,9 @@ ENV PORT=4600
 ENV HOSTNAME=0.0.0.0
 ENV NODE_ENV=production
 
+# Health check — Next.js must answer on the app port (busybox wget ships in alpine)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:4600/ >/dev/null 2>&1 || exit 1
+
 # Start both enforcer and Next.js
 CMD ["/app/start.sh"]

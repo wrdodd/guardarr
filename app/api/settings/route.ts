@@ -10,18 +10,14 @@ export async function GET() {
       settings[row.key] = row.value;
     }
 
-    // Fall back to env vars if not in DB
-    if (!settings.plex_server_url) {
-      settings.plex_server_url = process.env.PLEX_SERVER_URL || "";
-    }
-    if (!settings.plex_admin_token) {
-      settings.plex_admin_token = process.env.PLEX_ADMIN_TOKEN || "";
-    }
-    if (!settings.timezone) {
-      settings.timezone = "America/Los_Angeles";
-    }
+    // SECURITY: never return the admin token to the client — only whether one is set.
+    const tokenConfigured = !!(settings.plex_admin_token || process.env.PLEX_ADMIN_TOKEN);
 
-    return NextResponse.json(settings);
+    return NextResponse.json({
+      plex_server_url: settings.plex_server_url || process.env.PLEX_SERVER_URL || "",
+      timezone: settings.timezone || "America/Los_Angeles",
+      plex_admin_token_configured: tokenConfigured,
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -40,7 +36,10 @@ export async function POST(request: Request) {
     if (plex_server_url !== undefined) {
       upsert.run("plex_server_url", plex_server_url);
     }
-    if (plex_admin_token !== undefined) {
+    // Only persist a NON-EMPTY token, so an empty settings field can never wipe a
+    // working token (an empty DB token falling back to a stale env var was the root
+    // cause of the silent 401 enforcement outage).
+    if (plex_admin_token) {
       upsert.run("plex_admin_token", plex_admin_token);
     }
     if (timezone !== undefined) {
