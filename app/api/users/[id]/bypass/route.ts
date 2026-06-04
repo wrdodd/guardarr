@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSetting, getTimezone, formatLocalTime, getLocalTime } from "@/lib/settings";
+import { createHash } from "crypto";
 
 // Remove restrictions via Plex API
 async function removePlexRestrictions(plexUserId: string, token: string): Promise<boolean> {
@@ -61,7 +62,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
   try {
     console.log(`[GRANT BYPASS] === START === user_id=${params.id} at ${new Date().toISOString()}`);
     const body = await request.json();
-    const { minutes } = body;
+    const { minutes, pin } = body;
+
+    // Parent PIN gate (if configured) — blocks granting a bypass without the PIN.
+    const pinRow = db.prepare("SELECT value FROM settings WHERE key = 'bypass_pin_hash'").get() as { value: string } | undefined;
+    if (pinRow?.value) {
+      const provided = createHash("sha256").update(String(pin ?? "")).digest("hex");
+      if (provided !== pinRow.value) {
+        return NextResponse.json({ error: "Incorrect or missing bypass PIN", pinRequired: true }, { status: 403 });
+      }
+    }
 
     if (!minutes || ![15, 30, 60, 120, 240].includes(minutes)) {
       return NextResponse.json({ error: "Invalid duration. Use 15, 30, 60, 120, or 240 minutes." }, { status: 400 });

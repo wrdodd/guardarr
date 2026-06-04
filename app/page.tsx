@@ -37,15 +37,24 @@ export default function Home() {
   const [activeData, setActiveData] = useState<ActiveRestrictionsResponse | null>(null);
   const [loadingRestrictions, setLoadingRestrictions] = useState(true);
   const [enforcerStatus, setEnforcerStatus] = useState<any>(null);
+  const [bypassPinSet, setBypassPinSet] = useState(false);
 
   useEffect(() => {
     if (session) {
       fetchActiveRestrictions();
       fetchEnforcerStatus();
+      fetchPinSet();
       const interval = setInterval(() => { fetchActiveRestrictions(); fetchEnforcerStatus(); }, 30000); // refresh every 30s
       return () => clearInterval(interval);
     }
   }, [session]);
+
+  const fetchPinSet = async () => {
+    try {
+      const res = await fetch("/api/settings/bypass-pin", { cache: "no-store" });
+      if (res.ok) { const d = await res.json(); setBypassPinSet(!!d.pin_set); }
+    } catch (error) { /* ignore */ }
+  };
 
   const fetchEnforcerStatus = async () => {
     try {
@@ -72,8 +81,13 @@ export default function Home() {
   };
 
   const emergencyOverride = (userId: number, username: string) => {
+    let pin: string | null = null;
+    if (bypassPinSet) {
+      pin = window.prompt("Enter the bypass PIN to override:");
+      if (pin == null) return; // cancelled
+    }
     console.log(`[FRONTEND] Emergency override clicked for ${username} (userId=${userId}) at ${new Date().toISOString()}`);
-    
+
     // Optimistic UI update — show bypass immediately
     setActiveData((prev) => {
       if (!prev) return prev;
@@ -92,7 +106,7 @@ export default function Home() {
     fetch(`/api/users/${userId}/bypass`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ minutes: 60 }),
+      body: JSON.stringify({ minutes: 60, pin }),
       signal: controller.signal,
     })
       .then(async (res) => {

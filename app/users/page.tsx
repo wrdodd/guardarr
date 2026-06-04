@@ -51,6 +51,7 @@ export default function UsersPage() {
   const [now, setNow] = useState(Date.now());
   const [defaultRuleId, setDefaultRuleId] = useState("");
   const [bulkRuleId, setBulkRuleId] = useState("");
+  const [bypassPinSet, setBypassPinSet] = useState(false);
 
   // Tick every second for countdown timers
   useEffect(() => {
@@ -63,7 +64,15 @@ export default function UsersPage() {
     fetchRules();
     fetchBypasses();
     fetchDefaultRule();
+    fetchPinSet();
   }, [showDeactivated]);
+
+  const fetchPinSet = async () => {
+    try {
+      const res = await fetch("/api/settings/bypass-pin", { cache: "no-store" });
+      if (res.ok) { const d = await res.json(); setBypassPinSet(!!d.pin_set); }
+    } catch (error) { /* ignore */ }
+  };
 
   const fetchUsers = async (includeDeactivated = false) => {
     try {
@@ -199,8 +208,13 @@ export default function UsersPage() {
   };
 
   const grantBypass = (userId: number, minutes: number) => {
+    let pin: string | null = null;
+    if (bypassPinSet) {
+      pin = window.prompt("Enter the bypass PIN to allow access:");
+      if (pin == null) return; // cancelled
+    }
     console.log(`[FRONTEND] Grant bypass clicked: userId=${userId}, minutes=${minutes} at ${new Date().toISOString()}`);
-    
+
     // Close dropdown immediately for responsive feel
     setBypassDropdown(null);
     
@@ -223,7 +237,7 @@ export default function UsersPage() {
     fetch(`/api/users/${userId}/bypass`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ minutes }),
+      body: JSON.stringify({ minutes, pin }),
       signal: controller.signal,
     })
       .then(async (res) => {
