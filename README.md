@@ -38,9 +38,9 @@ automatically at the right times — and lift when they should.
 
 ## Screenshots
 
-| Login | Rules |
-|-------|-------|
-| ![Login](docs/screenshots/login.png) | ![Rules](docs/screenshots/rules.png) |
+| Dashboard | Rules |
+|-----------|-------|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Rules](docs/screenshots/rules.png) |
 
 ## Tech Stack
 
