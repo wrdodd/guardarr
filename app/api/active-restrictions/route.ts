@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getLocalTime } from "@/lib/settings";
 
+const { isRuleActive } = require("@/lib/enforcement.js");
+
 interface RuleRow {
   id: number;
   name: string;
@@ -57,21 +59,9 @@ export async function GET() {
     const activeRestrictions = [];
 
     for (const row of rows) {
-      // Check if rule is active now
-      const ruleDays = row.days.split(",");
-      if (!ruleDays.includes(currentDay) && !ruleDays.includes("all")) continue;
-
-      const start = row.start_time;
+      // Shared schedule evaluation — same code the enforcer runs.
       const end = row.end_time;
-      let isActive = false;
-
-      if (start <= end) {
-        isActive = currentTime >= start && currentTime <= end;
-      } else {
-        isActive = currentTime >= start || currentTime <= end;
-      }
-
-      if (!isActive) continue;
+      if (!isRuleActive(row, { currentDay, currentTime })) continue;
 
       // Check if user has active bypass
       let hasBypass = false;

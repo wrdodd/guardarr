@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, Plus, Trash2, Clock, Pencil, X, ArrowUp, ArrowDown } from "lucide-react";
 import Link from "next/link";
+import { formatWindow12h } from "@/lib/utils";
 
 interface Rule {
   id: number;
@@ -569,7 +570,7 @@ export default function RulesPage() {
                   <CardContent className="pt-0">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mb-3">
                       <span><span className="text-slate-500">Days:</span> {formatDays(rule.days)}</span>
-                      <span><span className="text-slate-500">Time:</span> {rule.start_time}–{rule.end_time}</span>
+                      <span><span className="text-slate-500">Time:</span> {formatWindow12h(rule.start_time, rule.end_time)}</span>
                     </div>
                     <div className="space-y-2">
                       {(rule.allowed_ratings || rule.blocked_ratings) && (

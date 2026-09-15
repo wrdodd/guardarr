@@ -23,7 +23,7 @@ automatically at the right times — and lift when they should.
 
 ### Access & control
 - **Parent PIN** — require a PIN to grant temporary bypasses
-- **Per-library access viewer** — read-only view of which Plex libraries each shared user can access
+- **Per-library access editor** — view *and change* which Plex libraries each shared user can access, PIN-gated, with a confirmation step before revoking all access
 - **Plex OAuth** — sign in with your Plex account
 
 ### Reliability & operations
@@ -33,12 +33,15 @@ automatically at the right times — and lift when they should.
 - **Enforcer health** — dashboard banner shows last run / last success / consecutive failures / token validity
 - **Token validation** — proactively checks the Plex admin token and surfaces failures instead of silently doing nothing
 - **Daily database backups** — online SQLite backup + WAL checkpoint, last 7 retained
+- **Activity retention** — the activity log is pruned to a configurable window (default 90 days) during the nightly pass
+- **Versioned schema migrations** — ordered, recorded migrations shared by the app and the enforcer, replacing ad-hoc `ALTER TABLE` attempts
 - **Activity insights** — 7-day rollup of restriction changes, with an optional **weekly digest** to a webhook
 - **Failure alerts** — optional webhook notification on repeated enforcement failures
 - **Authenticated API** — middleware gates all API routes and protected pages behind NextAuth
 
 ### UI
 - **Chip-based dark UI** — shadcn/ui + Tailwind, mobile-responsive, customizable accent colors
+- **12-hour times** — rule windows and activity timestamps render as am/pm in your configured timezone
 
 ## Screenshots
 
@@ -52,7 +55,8 @@ automatically at the right times — and lift when they should.
 - shadcn/ui + Tailwind CSS
 - better-sqlite3 (local SQLite, WAL mode)
 - NextAuth (Plex OAuth, JWT sessions)
-- Standalone enforcer process + Next.js server
+- Standalone enforcer process + Next.js server sharing one enforcement core (`lib/enforcement.js`)
+- `node:test` suite, run in CI on every push and pull request
 - Docker
 
 ## Quick Start
@@ -78,6 +82,7 @@ Required environment variables:
 
 Optional:
 - `TIMEZONE` — IANA timezone used to evaluate rule schedules, e.g. `America/Los_Angeles` (fallback; normally set in Settings and stored in the DB). Defaults to `America/Los_Angeles`.
+- `ACTIVITY_RETENTION_DAYS` — how long to keep activity log entries; `0` disables pruning (default `90`)
 - `ALERT_WEBHOOK_URL` — webhook for enforcement-failure alerts and the weekly digest (also configurable in Settings)
 
 In-app settings:
@@ -136,6 +141,34 @@ The loop self-schedules with capped exponential backoff (60s → 5 min) on failu
 validates the Plex admin token periodically, records its health to the database, and
 can alert a webhook after repeated failures. If plex.tv is unreachable, it falls back
 to the state recorded in the database rather than guessing.
+
+## Development
+
+```bash
+npm install
+npm test        # node:test suite — no database or network required
+npm run build
+```
+
+### Architecture notes
+
+Enforcement logic lives in one place and is shared by every caller:
+
+- **`lib/enforcement.js`** — filter construction, schedule evaluation, and
+  `planUserAction()`, the pure function that decides what should happen to a user
+  this cycle. No database, no network, no clock reads except what is passed in,
+  which is what makes it directly testable.
+- **`lib/plex-api.js`** — all plex.tv access and XML parsing (`fast-xml-parser`).
+- **`lib/migrations.js`** — ordered schema migrations, applied once and recorded in
+  `schema_version`.
+
+The standalone enforcer (`enforcer.js`) is an I/O shell around that core: read
+state, ask for a decision, perform it, record the result. The Next.js API routes
+import the same modules, so a bypass being cancelled applies byte-identical filters
+to what the enforcer would apply.
+
+> Enforcement runs **only** in the standalone enforcer process. API routes report on
+> it; they never start their own loop.
 
 ## License
 

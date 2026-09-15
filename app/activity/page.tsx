@@ -21,6 +21,8 @@ export default function ActivityPage() {
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<any>(null);
+  // Timezone the server says to render in, so the feed matches the schedules.
+  const [timezone, setTimezone] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     fetchActivity();
@@ -36,9 +38,11 @@ export default function ActivityPage() {
 
   const fetchActivity = async () => {
     try {
-      const res = await fetch("/api/activity?limit=50");
+      const res = await fetch("/api/activity?limit=50", { cache: "no-store" });
       const data = await res.json();
-      setEntries(data);
+      // The API returns { entries, timezone, ... }; older builds returned a bare array.
+      setEntries(Array.isArray(data) ? data : data.entries ?? []);
+      if (!Array.isArray(data) && data.timezone) setTimezone(data.timezone);
     } catch (error) {
       toast({ title: "Error", description: "Failed to load activity", variant: "destructive" });
     } finally {
@@ -46,9 +50,21 @@ export default function ActivityPage() {
     }
   };
 
+  // created_at arrives as an explicit UTC instant; render it in the configured
+  // timezone with am/pm rather than the browser's locale default.
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
     const date = new Date(dateStr);
-    return date.toLocaleString();
+    if (isNaN(date.getTime())) return dateStr;
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date);
   };
 
   const getActionColor = (action: string) => {

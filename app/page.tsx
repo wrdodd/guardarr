@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Clock, AlertTriangle, Zap, Timer } from "lucide-react";
 import Link from "next/link";
+import { formatWindow12h } from "@/lib/utils";
 
 interface ActiveRestriction {
   userId: number;
@@ -341,8 +342,12 @@ export default function Home() {
                             <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
                               {restrictions.map((r) => (
                                 <div key={r.ruleId} className="text-xs space-y-0.5">
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="text-orange-400">{r.ruleName}</span>
+                                    <span className="text-slate-600">•</span>
+                                    <span className="text-slate-500">
+                                      {formatWindow12h(r.startTime, r.endTime)}
+                                    </span>
                                     <span className="text-slate-600">•</span>
                                     <span className="text-slate-500">
                                       <Clock className="h-3 w-3 inline mr-0.5" />

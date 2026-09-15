@@ -59,41 +59,29 @@ export function getEnforcerStatus(): EnforcerStatus | null {
   }
 }
 
-export function formatLocalTime(date: Date): string {
-  const timezone = getTimezone();
+/**
+ * Format an instant in the configured timezone.
+ * `hour12` renders am/pm, which is what the dashboard and activity feed use.
+ */
+export function formatLocalTime(date: Date, opts?: { hour12?: boolean }): string {
   return new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
+    timeZone: getTimezone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false,
+    hour12: opts?.hour12 ?? false,
   }).format(date);
 }
 
+/**
+ * Current day/time in the configured timezone.
+ * Delegates to lib/enforcement.js so the UI, the API routes and the standalone
+ * enforcer all answer "what time is it" identically.
+ */
 export function getLocalTime() {
-  const timezone = getTimezone();
-  const now = new Date();
-  const timeFormatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    hour: "numeric",
-    minute: "numeric",
-    hour12: false,
-    weekday: "short",
-  });
-
-  const parts = timeFormatter.formatToParts(now);
-  const hour = parseInt(parts.find((p) => p.type === "hour")?.value || "0");
-  const minute = parts.find((p) => p.type === "minute")?.value || "00";
-  const weekday = parts.find((p) => p.type === "weekday")?.value?.toLowerCase() || "";
-
-  const dayMap: Record<string, string> = {
-    sun: "sun", mon: "mon", tue: "tue", wed: "wed", thu: "thu", fri: "fri", sat: "sat",
-  };
-  const currentDay = dayMap[weekday.substring(0, 3)] || weekday.substring(0, 3);
-  const currentTime = `${String(hour).padStart(2, "0")}:${minute}`;
-
-  return { currentDay, currentTime, timezone };
+  const { getLocalTime: shared } = require("./enforcement.js");
+  return shared(getTimezone()) as { currentDay: string; currentTime: string; timezone: string };
 }

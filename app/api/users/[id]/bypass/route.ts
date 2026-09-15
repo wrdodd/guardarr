@@ -3,55 +3,38 @@ import { db } from "@/lib/db";
 import { getSetting, getTimezone, formatLocalTime, getLocalTime } from "@/lib/settings";
 import { createHash } from "crypto";
 
-// Remove restrictions via Plex API
+// Plex writes and filter construction come from the shared enforcement core
+// (lib/enforcement.js + lib/plex-api.js). This route previously carried its own
+// older copies of buildFilter/applyPlexRestrictions that lacked rating
+// normalization, the TV-MA cross-apply and label clauses — so cancelling a bypass
+// re-applied a subtly DIFFERENT filter than the enforcer would, which the reconcile
+// loop then corrected a minute later.
+const { buildDesiredFilters, describeRule, isRuleActive } = require("@/lib/enforcement.js");
+const { putUserFilters, clearUserFilters } = require("@/lib/plex-api.js");
+
 async function removePlexRestrictions(plexUserId: string, token: string): Promise<boolean> {
   try {
     console.log(`[PLEX API] Removing restrictions for plex user ${plexUserId}`);
-    const url = `https://plex.tv/api/users/${plexUserId}?X-Plex-Token=${token}&filterMovies=&filterTelevision=`;
-    const res = await fetch(url, { method: "PUT" });
-    console.log(`[PLEX API] Remove restrictions response: ${res.status} ${res.statusText}`);
-    return res.ok;
-  } catch (err) {
-    console.error(`[PLEX API] Remove restrictions error:`, err);
+    await clearUserFilters(plexUserId, token);
+    return true;
+  } catch (err: any) {
+    console.error(`[PLEX API] Remove restrictions error:`, err.message);
     return false;
   }
 }
 
-// Build a Plex content rating filter string from allowed/blocked ratings
-function buildFilter(allowed: string, blocked: string): string {
-  if (allowed) {
-    const ratings = allowed.split(',').map((r: string) => r.trim()).filter(Boolean);
-    if (ratings.length > 0) return `contentRating=${ratings.join(',')}`;
-  } else if (blocked) {
-    const ratings = blocked.split(',').map((r: string) => r.trim()).filter(Boolean);
-    if (ratings.length > 0) return `contentRating!=${ratings.join(',')}`;
-  }
-  return "";
-}
-
-// Apply restrictions via Plex API — handles separate movie and TV ratings
 async function applyPlexRestrictions(plexUserId: string, rule: any, token: string): Promise<boolean> {
   try {
-    const movieFilter = buildFilter(rule.allowed_ratings || '', rule.blocked_ratings || '');
-    const tvFilter = buildFilter(rule.allowed_tv_ratings || '', rule.blocked_tv_ratings || '');
-    
-    if (!movieFilter && !tvFilter) {
+    const desired = buildDesiredFilters(rule);
+    if (!desired.movieFilter && !desired.tvFilter) {
       console.log(`[PLEX API] No filter to apply for rule "${rule.name}" — skipping`);
       return false;
     }
-    
-    const params = new URLSearchParams();
-    params.set('X-Plex-Token', token);
-    if (movieFilter) params.set('filterMovies', movieFilter);
-    if (tvFilter) params.set('filterTelevision', tvFilter);
-    
-    console.log(`[PLEX API] Applying restriction for plex user ${plexUserId}: movies=${movieFilter} tv=${tvFilter}`);
-    const url = `https://plex.tv/api/users/${plexUserId}?${params.toString()}`;
-    const res = await fetch(url, { method: "PUT" });
-    console.log(`[PLEX API] Apply restrictions response: ${res.status} ${res.statusText}`);
-    return res.ok;
-  } catch (err) {
-    console.error(`[PLEX API] Apply restrictions error:`, err);
+    console.log(`[PLEX API] Applying restriction for plex user ${plexUserId}: movies=${desired.movieFilter} tv=${desired.tvFilter}`);
+    await putUserFilters(plexUserId, token, desired.movieFilter, desired.tvFilter);
+    return true;
+  } catch (err: any) {
+    console.error(`[PLEX API] Apply restrictions error:`, err.message);
     return false;
   }
 }
@@ -208,20 +191,11 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
       let appliedCount = 0;
       for (const rule of rules) {
-        // Check if rule should be active now
-        const ruleDays = rule.days.split(",");
-        const isDayActive = ruleDays.includes(currentDay) || ruleDays.includes("all");
-        
-        let isTimeActive = false;
-        if (rule.start_time <= rule.end_time) {
-          isTimeActive = currentTime >= rule.start_time && currentTime <= rule.end_time;
-        } else {
-          isTimeActive = currentTime >= rule.start_time || currentTime <= rule.end_time;
-        }
+        // Shared schedule evaluation — identical to what the enforcer uses.
+        const shouldBeActive = isRuleActive(rule, { currentDay, currentTime });
+        console.log(`[CANCEL BYPASS] Rule "${rule.name}": active=${shouldBeActive}`);
 
-        console.log(`[CANCEL BYPASS] Rule "${rule.name}": dayActive=${isDayActive}, timeActive=${isTimeActive}`);
-
-        if (isDayActive && isTimeActive) {
+        if (shouldBeActive) {
           // Apply restriction immediately — pass full rule object to handle both allowed/blocked ratings
           const success = await applyPlexRestrictions(plexTvId, rule, token);
           console.log(`[CANCEL BYPASS] Apply rule "${rule.name}" result: ${success}`);
@@ -229,19 +203,18 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
           if (success) {
             appliedCount++;
             // Add to applied_restrictions so enforcer knows it's active
+            const desired = buildDesiredFilters(rule);
             db.prepare(`
-              INSERT INTO applied_restrictions (user_id, rule_id, plex_tv_id, username, rule_name)
-              VALUES (?, ?, ?, ?, ?)
-              ON CONFLICT(user_id, rule_id) DO UPDATE SET applied_at = CURRENT_TIMESTAMP
-            `).run(params.id, rule.id, plexTvId, user.plex_username, rule.name);
+              INSERT INTO applied_restrictions (user_id, rule_id, plex_tv_id, username, rule_name, movie_filter, tv_filter)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(user_id, rule_id) DO UPDATE SET
+                applied_at = CURRENT_TIMESTAMP,
+                movie_filter = excluded.movie_filter,
+                tv_filter = excluded.tv_filter
+            `).run(params.id, rule.id, plexTvId, user.plex_username, rule.name, desired.movieFilter, desired.tvFilter);
 
             // Log the re-application
-            const parts: string[] = [];
-            if (rule.allowed_ratings) parts.push(`Movies allowed: ${rule.allowed_ratings}`);
-            else if (rule.blocked_ratings) parts.push(`Movies blocked: ${rule.blocked_ratings}`);
-            if (rule.allowed_tv_ratings) parts.push(`TV allowed: ${rule.allowed_tv_ratings}`);
-            else if (rule.blocked_tv_ratings) parts.push(`TV blocked: ${rule.blocked_tv_ratings}`);
-            const ratingInfo = parts.join(' | ') || 'No ratings configured';
+            const ratingInfo = describeRule(rule);
             db.prepare(
               "INSERT INTO activity_log (plex_username, rule_name, action, details) VALUES (?, ?, ?, ?)"
             ).run(

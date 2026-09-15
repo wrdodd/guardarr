@@ -1,26 +1,35 @@
-import { enforceRules, startEnforcer } from "@/lib/enforcer";
+import { NextResponse } from "next/server";
+import { getEnforcerStatus } from "@/lib/settings";
 
-// Singleton to track if enforcer is running
-let enforcerStarted = false;
+export const dynamic = "force-dynamic";
 
-// GET /api/enforcer - run enforcement check now
+/**
+ * GET /api/enforcer — report enforcement health.
+ *
+ * This route used to call startEnforcer(), which span up a SECOND enforcement loop
+ * inside the Next.js process from a now-deleted duplicate of the enforcement logic
+ * (lib/enforcer.ts). That copy evaluated schedules with new Date().getHours() — i.e.
+ * the container's timezone, the bug fixed in v1.1.14 — and knew nothing about
+ * durable state or bypasses. Two loops with different rules would fight each other.
+ *
+ * Enforcement is owned solely by the standalone enforcer process (enforcer.js),
+ * which reconciles every 60 seconds. This endpoint only reports on it.
+ */
 export async function GET() {
-  try {
-    // Auto-start enforcer on first request if not running
-    if (!enforcerStarted) {
-      startEnforcer(1);
-      enforcerStarted = true;
-    }
-    
-    // Run enforcement immediately
-    await enforceRules();
-    
-    return Response.json({ 
-      success: true, 
-      message: "Enforcement check completed",
-      enforcerRunning: true 
-    });
-  } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 });
+  const status = getEnforcerStatus();
+  if (!status) {
+    return NextResponse.json(
+      { running: false, message: "No enforcer status recorded yet." },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    );
   }
+  return NextResponse.json(
+    {
+      running: true,
+      owner: "standalone enforcer process (enforcer.js)",
+      intervalSeconds: 60,
+      ...status,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
