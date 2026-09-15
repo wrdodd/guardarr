@@ -18,12 +18,14 @@ services:
       dockerfile: Dockerfile
     image: guardarr_guardarr:latest
     container_name: guardarr
+    init: true
     ports:
       - 4600:4600
     env_file:
       - .env.local
     environment:
       - NODE_ENV=production
+      - TZ=America/Los_Angeles
       - DATABASE_URL=/app/data/guardarr.db
       - APP_PORT=4600
     volumes:
