@@ -14,6 +14,7 @@ automatically at the right times — and lift when they should.
 - **Rule presets** — one-click *Little Kids / Tweens / Teens* starting points you can tweak
 - **Bulk apply** — assign or remove a rule across all managed users at once
 - **Auto-default rule** — automatically apply a chosen rule to new Plex users as they're discovered
+- **Timezone-correct schedules** — windows are evaluated in *your* configured timezone, not the server's or container's clock
 
 ### Content filtering
 - **Rating filters** — allow or block specific movie & TV ratings per rule
@@ -26,6 +27,9 @@ automatically at the right times — and lift when they should.
 - **Plex OAuth** — sign in with your Plex account
 
 ### Reliability & operations
+- **Self-healing enforcement** — every cycle reconciles against the live filters on plex.tv, so restarts, restored backups and out-of-band edits correct themselves
+- **Durable applied-state** — what's currently applied is recorded in the database, not process memory, so a restart can never strand a user in a restriction
+- **Bypass-aware** — an active temporary bypass suppresses re-application and survives restarts; protection returns automatically the moment it expires
 - **Enforcer health** — dashboard banner shows last run / last success / consecutive failures / token validity
 - **Token validation** — proactively checks the Plex admin token and surfaces failures instead of silently doing nothing
 - **Daily database backups** — online SQLite backup + WAL checkpoint, last 7 retained
@@ -73,9 +77,11 @@ Required environment variables:
 - `NEXTAUTH_URL` — your domain (e.g., `https://guardarr.yourdomain.com`)
 
 Optional:
+- `TIMEZONE` — IANA timezone used to evaluate rule schedules, e.g. `America/Los_Angeles` (fallback; normally set in Settings and stored in the DB). Defaults to `America/Los_Angeles`.
 - `ALERT_WEBHOOK_URL` — webhook for enforcement-failure alerts and the weekly digest (also configurable in Settings)
 
 In-app settings:
+- **Timezone** — the timezone rule windows are interpreted in; set this to your household's timezone
 - **Plex admin token** — re-paste after a rotation; every Plex sign-in persists the current token to the DB
 - **Parent PIN** — set/clear the bypass PIN (stored hashed)
 - **Default rule** — choose the rule auto-applied to new users
@@ -95,11 +101,41 @@ See: https://support.plex.tv/articles/204059436-finding-an-authentication-token-
 
 ## Schedule Enforcement
 
-A standalone enforcer process runs every minute. Each cycle it evaluates active
-rules and applies the corresponding content-rating + label restrictions to the
-configured Plex users via the plex.tv API. It self-schedules with capped
-exponential backoff on failure, validates the admin token periodically, records
-its health to the database, and only re-applies a rule when its state changes.
+A standalone enforcer process runs every minute alongside the web app. Each cycle it:
+
+1. Reads the current day/time **in the configured timezone** (`settings.timezone`,
+   falling back to the `TIMEZONE` env var, default `America/Los_Angeles`) using `Intl`
+   — never the container's clock, so a container running in UTC still enforces a
+   `14:00–19:00` rule at 2pm–7pm local.
+2. Picks the winning rule per user. Plex stores a single filter per user, so when
+   several rules match, the highest `priority` wins (ties broken by rule id).
+3. Fetches every managed user's **live filters from plex.tv** and compares them with
+   what the winning rule wants.
+4. Writes only on real divergence — a `PUT` happens when a rule starts, ends, or is
+   edited, or when the live state has drifted from what Guardarr applied. Steady state
+   makes no writes at all.
+
+### Durability
+
+What is currently applied is recorded in the `applied_restrictions` table, not in
+process memory, and each cycle is reconciled against plex.tv. This means a restart,
+a crash or a restored backup cannot strand a user inside a restriction that never
+lifts — the next cycle notices the mismatch and corrects it. Filters that Guardarr
+did not set, and that match none of the user's rules, are deliberately left alone
+rather than clobbered.
+
+### Bypasses
+
+An unexpired temporary bypass outranks every rule: restrictions are cleared and
+re-application is suppressed for as long as it lasts, across restarts. When it
+expires, protection is restored automatically on the next cycle.
+
+### Failure handling
+
+The loop self-schedules with capped exponential backoff (60s → 5 min) on failure,
+validates the Plex admin token periodically, records its health to the database, and
+can alert a webhook after repeated failures. If plex.tv is unreachable, it falls back
+to the state recorded in the database rather than guessing.
 
 ## License
 
